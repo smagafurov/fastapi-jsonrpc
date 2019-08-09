@@ -56,6 +56,33 @@ def is_scope_child(owner: type, child: type):
     )
 
 
+def rename_if_scope_child_component(owner: type, child, postfix: str):
+    child, is_opt = extract_optional(child)
+    if is_scope_child(owner, child):
+        child = component_name(f'{owner.__name__}.{postfix}', owner.__module__)(child)
+    if is_opt:
+        child = Optional[child]
+    return child
+
+
+def optional(obj):
+    return Optional[obj]
+
+
+def extract_optional(obj):
+    try:
+        obj.__args__
+    except AttributeError:
+        return obj, False
+
+    if not obj.__args__:
+        return obj, False
+    elif Optional[obj.__args__[0]] == obj:
+        return obj.__args__[0], True
+    else:
+        return obj, False
+
+
 class BaseError(Exception):
     CODE = None
     MESSAGE = None
@@ -131,9 +158,8 @@ class BaseError(Exception):
     @classmethod
     def build_error_model(cls):
         if cls.ErrorModel is not None:
-            if is_scope_child(cls, cls.ErrorModel):
-                return component_name(f'{cls.__name__}.Error', cls.__module__)(cls.ErrorModel)
-        return cls.ErrorModel
+            return rename_if_scope_child_component(cls, cls.ErrorModel, 'Error')
+        return None
 
     @classmethod
     def get_data_model(cls):
@@ -145,9 +171,7 @@ class BaseError(Exception):
     @classmethod
     def build_data_model(cls):
         if cls.DataModel is not None:
-            if is_scope_child(cls, cls.DataModel):
-                return component_name(f'{cls.__name__}.Data', cls.__module__)(cls.DataModel)
-            return cls.DataModel
+            return rename_if_scope_child_component(cls, cls.DataModel, 'Data')
 
         error_model = cls.get_error_model()
         if error_model is None:
@@ -705,7 +729,11 @@ class Entrypoint(APIRouter):
         return self.scheduler
 
     def get_error_resp(self, error: BaseError):
-        return error.get_resp()
+        resp = error.get_resp()
+        resp_model = error.get_resp_model()
+        if resp_model:
+            resp_model.validate(resp)
+        return resp
 
     def bind_dependency_overrides_provider(self, value):
         for route in self.routes:
@@ -761,16 +789,21 @@ class API(FastAPI):
 
 
 if __name__ == '__main__':
+    import uvicorn
+
     app = API()
 
     api_v1 = Entrypoint('/api/v1/jsonrpc')
+
 
     class MyError(BaseError):
         CODE = 5000
         MESSAGE = 'My error'
 
+        @optional
         class DataModel(BaseModel):
             details: str
+
 
     @api_v1.method(errors=[MyError])
     def echo(
@@ -778,9 +811,12 @@ if __name__ == '__main__':
     ) -> str:
         if data == 'error':
             raise MyError(data={'details': 'error'})
-        return data
+        elif data == 'error-no-data':
+            raise MyError()
+        else:
+            return data
+
 
     app.bind_entrypoint(api_v1)
 
-    import uvicorn
     uvicorn.run(app, port=5000, debug=True, access_log=False)

@@ -25,16 +25,20 @@ Usage
     from fastapi_jsonrpc import Param
     from pydantic import BaseModel
 
+
     app = jsonrpc.API()
 
     api_v1 = jsonrpc.Entrypoint('/api/v1/jsonrpc')
+
 
     class MyError(jsonrpc.BaseError):
         CODE = 5000
         MESSAGE = 'My error'
 
+        @jsonrpc.optional
         class DataModel(BaseModel):
             details: str
+
 
     @api_v1.method(errors=[MyError])
     def echo(
@@ -42,9 +46,14 @@ Usage
     ) -> str:
         if data == 'error':
             raise MyError(data={'details': 'error'})
-        return data
+        elif data == 'error-no-data':
+            raise MyError()
+        else:
+            return data
+
 
     app.bind_entrypoint(api_v1)
+
 
     if __name__ == '__main__':
         import uvicorn
@@ -81,6 +90,8 @@ Development
 
 Changelog
 =========
+
+[0.1.10] Validate error responses
 
 [0.1.9] Fix usage example (forgotten import of pydantic)
 
