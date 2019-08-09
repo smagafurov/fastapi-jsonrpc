@@ -23,6 +23,7 @@ Usage
 
     import fastapi_jsonrpc as jsonrpc
     from fastapi_jsonrpc import Param
+    from pydantic import BaseModel
 
     app = jsonrpc.API()
 
@@ -80,6 +81,8 @@ Development
 
 Changelog
 =========
+
+[0.1.9] Fix usage example (forgotten import of pydantic)
 
 [0.1.8] Push sources to github
 

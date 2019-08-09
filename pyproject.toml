@@ -1,23 +1,23 @@
 [tool.poetry]
 name = "fastapi-jsonrpc"
-version = "0.1.8"
+version = "0.1.9"
 description = "JSON-RPC server based on fastapi"
 license = "MIT"
 authors = ["Sergey Magafurov <magafurov@tochka.com>"]
 readme = "README.rst"
 repository = "https://github.com/smagafurov/fastapi-jsonrpc"
 homepage = "https://github.com/smagafurov/fastapi-jsonrpc"
-keywords = ['json-rpc', 'fastapi', 'asgi']
+keywords = ['json-rpc', 'asgi', 'swagger', 'openapi', 'fastapi', 'pydantic', 'starlette']
 
 [tool.poetry.dependencies]
 python = "^3.6"
-fastapi = "^0.35.0"
 aiojobs = "^0.2.2"
+pydantic = "^0.30"
+starlette = "^0.12.7"
+fastapi = "^0.35.0"
 
 [tool.poetry.dev-dependencies]
 uvicorn = "^0.8.6"
-pydantic = "^0.30"
-starlette = "^0.12.7"
 pygments = "^2.4"
 
 [tool.dephell.main]
