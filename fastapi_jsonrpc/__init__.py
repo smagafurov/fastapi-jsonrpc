@@ -79,6 +79,7 @@ class BaseError(Exception):
     DataModel = None
 
     data_required = False
+    errors_required = False
 
     error_model = None
     data_model = None
@@ -167,9 +168,18 @@ class BaseError(Exception):
         if error_model is None:
             return None
 
-        @component_name(f'_ErrorData[{error_model.__name__}]', error_model.__module__)
-        class _ErrorData(BaseModel):
-            errors: List[error_model]
+        errors_annotation = List[error_model]
+        if not cls.errors_required:
+            errors_annotation = Optional[errors_annotation]
+
+        ns = {
+            '__annotations__': {
+                'errors': errors_annotation,
+            }
+        }
+
+        _ErrorData = MetaModel.__new__(MetaModel, '_ErrorData', (BaseModel, ), ns)
+        _ErrorData = component_name(f'_ErrorData[{error_model.__name__}]', error_model.__module__)(_ErrorData)
 
         return _ErrorData
 
