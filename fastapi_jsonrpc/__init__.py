@@ -137,7 +137,15 @@ class BaseError(Exception):
         else:
             resp['id'] = None
 
+        self.validate_resp(resp)
+
         return jsonable_encoder(resp)
+
+    @classmethod
+    def validate_resp(cls, resp):
+        resp_model = cls.get_resp_model()
+        if resp_model:
+            resp_model.validate(resp)
 
     @classmethod
     def get_error_model(cls):
@@ -727,11 +735,7 @@ class Entrypoint(APIRouter):
         return self.scheduler
 
     def get_error_resp(self, error: BaseError):
-        resp = error.get_resp()
-        resp_model = error.get_resp_model()
-        if resp_model:
-            resp_model.validate(resp)
-        return resp
+        return error.get_resp()
 
     def bind_dependency_overrides_provider(self, value):
         for route in self.routes:
