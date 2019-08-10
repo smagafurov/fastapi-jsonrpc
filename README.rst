@@ -35,7 +35,6 @@ Usage
         CODE = 5000
         MESSAGE = 'My error'
 
-        @jsonrpc.optional
         class DataModel(BaseModel):
             details: str
 
@@ -46,8 +45,6 @@ Usage
     ) -> str:
         if data == 'error':
             raise MyError(data={'details': 'error'})
-        elif data == 'error-no-data':
-            raise MyError()
         else:
             return data
 
@@ -87,34 +84,3 @@ Development
     .. code:: bash
 
         dephell deps convert
-
-Changelog
-=========
-
-[0.1.10] Validate error responses
-
-[0.1.9] Fix usage example (forgotten import of pydantic)
-
-[0.1.8] Push sources to github
-
-[0.1.7]
-
-    - Follow JSON-RPC specification in special cases:
-
-        https://www.jsonrpc.org/specification
-
-    - Use ``aiojobs.Scheduler`` for batch requests
-
-[0.1.6] Ability to write DataModel class in BaseError class scope
-
-[0.1.5] Add error usage example to README.rst
-
-[0.1.4] Add description to README.rst
-
-[0.1.3] Fix README.rst
-
-[0.1.2] Add usage example to README.rst
-
-[0.1.1] README.rst
-
-[0.1.0] Initial commit

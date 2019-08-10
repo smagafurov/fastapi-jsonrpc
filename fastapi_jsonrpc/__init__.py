@@ -6,16 +6,17 @@ from json import JSONDecodeError
 from types import FunctionType, CoroutineType
 from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable
 
+from pydantic import StrictStr, ValidationError, DictError, Schema
+from pydantic import BaseModel
+from pydantic.main import MetaModel
+from pydantic.utils import resolve_annotations
 from fastapi.dependencies.models import Dependant
 from fastapi.encoders import jsonable_encoder
 from fastapi.params import Depends
-from pydantic import BaseModel, Schema, StrictStr, ValidationError, DictError
 from fastapi import FastAPI
 from fastapi.dependencies.utils import solve_dependencies, get_dependant, add_non_field_param_to_dependency
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute, APIRouter, serialize_response
-from pydantic.main import MetaModel
-from pydantic.utils import resolve_annotations
 from starlette.background import BackgroundTasks
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
@@ -26,6 +27,10 @@ import aiojobs
 
 
 logger = logging.getLogger(__name__)
+
+
+class Param(fastapi.params.Body):
+    pass
 
 
 components = {}
@@ -51,36 +56,19 @@ def component_name(name: str, module: str = None):
 
 def is_scope_child(owner: type, child: type):
     return (
+        (
+            owner.__dict__.get(child.__name__) is child or
+            owner.__dict__.get(child.__name__) is Optional[child]
+        ) and
         child.__qualname__ == owner.__qualname__ + '.' + child.__name__ and
         child.__module__ == owner.__module__
     )
 
 
 def rename_if_scope_child_component(owner: type, child, postfix: str):
-    child, is_opt = extract_optional(child)
     if is_scope_child(owner, child):
         child = component_name(f'{owner.__name__}.{postfix}', owner.__module__)(child)
-    if is_opt:
-        child = Optional[child]
     return child
-
-
-def optional(obj):
-    return Optional[obj]
-
-
-def extract_optional(obj):
-    try:
-        obj.__args__
-    except AttributeError:
-        return obj, False
-
-    if not obj.__args__:
-        return obj, False
-    elif Optional[obj.__args__[0]] == obj:
-        return obj.__args__[0], True
-    else:
-        return obj, False
 
 
 class BaseError(Exception):
@@ -89,6 +77,8 @@ class BaseError(Exception):
 
     ErrorModel = None
     DataModel = None
+
+    data_required = False
 
     error_model = None
     data_model = None
@@ -203,6 +193,8 @@ class BaseError(Exception):
 
         data_model = cls.get_data_model()
         if data_model is not None:
+            if not cls.data_required:
+                data_model = Optional[data_model]
             # noinspection PyTypeChecker
             ns['__annotations__']['data'] = data_model
 
@@ -269,10 +261,6 @@ async def call_sync_async(call, *args, **kwargs):
         return await call(*args, **kwargs)
     else:
         return await run_in_threadpool(call, *args, **kwargs)
-
-
-class Param(fastapi.params.Body):
-    pass
 
 
 def errors_responses(errors: Sequence[Type[BaseError]] = None):
@@ -800,7 +788,6 @@ if __name__ == '__main__':
         CODE = 5000
         MESSAGE = 'My error'
 
-        @optional
         class DataModel(BaseModel):
             details: str
 
@@ -811,8 +798,6 @@ if __name__ == '__main__':
     ) -> str:
         if data == 'error':
             raise MyError(data={'details': 'error'})
-        elif data == 'error-no-data':
-            raise MyError()
         else:
             return data
 
