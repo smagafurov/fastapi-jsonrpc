@@ -90,9 +90,17 @@ class BaseError(Exception):
     def __init__(self, data=None, req=None):
         if data is None:
             data = {}
+        data = self.validate_data(data)
         Exception.__init__(self, self.CODE, self.MESSAGE)
         self.data = data
         self.req = req
+
+    @classmethod
+    def validate_data(cls, data):
+        data_model = cls.get_data_model()
+        if data_model:
+            data = data_model.validate(data)
+        return data
 
     def __str__(self):
         s = f'[{self.CODE}] {self.MESSAGE}'
@@ -137,15 +145,7 @@ class BaseError(Exception):
         else:
             resp['id'] = None
 
-        self.validate_resp(resp)
-
         return jsonable_encoder(resp)
-
-    @classmethod
-    def validate_resp(cls, resp):
-        resp_model = cls.get_resp_model()
-        if resp_model:
-            resp_model.validate(resp)
 
     @classmethod
     def get_error_model(cls):
