@@ -113,7 +113,7 @@ class BaseError(Exception):
         return s
 
     def get_resp_data(self):
-        return self.data
+        return self.raw_data
 
     @classmethod
     def get_description(cls):
