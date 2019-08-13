@@ -87,13 +87,12 @@ class BaseError(Exception):
 
     _component_name = None
 
-    def __init__(self, data=None, req=None):
+    def __init__(self, data=None):
         if data is None:
             data = {}
         data = self.validate_data(data)
         Exception.__init__(self, self.CODE, self.MESSAGE)
         self.data = data
-        self.req = req
 
     @classmethod
     def validate_data(cls, data):
@@ -107,9 +106,6 @@ class BaseError(Exception):
         if self.data:
             s += f': {self.data!r}'
         return s
-
-    def bind_req(self, req):
-        self.req = req
 
     def get_resp_data(self):
         return self.data
@@ -138,12 +134,8 @@ class BaseError(Exception):
         resp = {
             'jsonrpc': '2.0',
             'error': error,
+            'id': None,
         }
-
-        if isinstance(self.req, dict):
-            resp['id'] = self.req.get('id')
-        else:
-            resp['id'] = None
 
         return jsonable_encoder(resp)
 
@@ -271,6 +263,10 @@ class InternalError(BaseError):
     """Internal JSON-RPC error"""
     CODE = -32603
     MESSAGE = 'Internal error'
+
+
+class NoContent(Exception):
+    pass
 
 
 async def call_sync_async(call, *args, **kwargs):
@@ -431,89 +427,90 @@ class MethodRoute(APIRoute):
 
         self.func = func
         self.entrypoint = entrypoint
-        self.app = request_response(self.jsonrpc_app_response)
+        self.app = request_response(self.handle_http_request)
         self.shared_dependencies = shared_dependencies
 
-    def get_error_resp(self, error: BaseError):
-        return self.entrypoint.get_error_resp(error)
+    async def parse_body(self, http_request) -> Any:
+        try:
+            req = await http_request.json()
+        except JSONDecodeError:
+            raise ParseError()
+        return req
 
-    async def jsonrpc_app_response(self, http_request: Request):
+    async def handle_http_request(self, http_request: Request):
         background_tasks = BackgroundTasks()
 
         # There may be exceptions to the transport layer, we don’t wrap them in JSON-RPC
         dependency_cache = await self.entrypoint.solve_shared_dependencies(http_request, background_tasks)
 
         try:
-            req = await http_request.json()
-        except JSONDecodeError:
-            content = self.get_error_resp(ParseError())
+            body = await self.parse_body(http_request)
+        except Exception as exc:
+            resp = await self.entrypoint.handle_exception_to_resp(exc)
         else:
             try:
-                content = await self.jsonrpc_app_content(http_request, background_tasks, dependency_cache, req)
+                resp = await self.handle_req_to_resp(http_request, background_tasks, dependency_cache, body)
             except NoContent:
+                # no content for successful notifications
                 return Response(media_type='application/json', background=background_tasks)
 
-        return self.response_class(content=content, background=background_tasks)
+        return self.response_class(content=resp, background=background_tasks)
 
-    async def jsonrpc_app_content(
-        self, http_request: Request, background_tasks: BackgroundTasks, dependency_cache, req,
+    async def handle_req_to_resp(
+        self,
+        http_request: Request,
+        background_tasks: BackgroundTasks,
+        dependency_cache: dict,
+        req: Any,
+    ) -> dict:
+        handler_coro = self.handle_req(http_request, background_tasks, dependency_cache, req)
+        return await self.entrypoint.handle_req_to_resp(handler_coro, req)
+
+    async def handle_req(
+        self,
+        http_request: Request,
+        background_tasks: BackgroundTasks,
+        dependency_cache: dict,
+        req: Any,
     ):
-        try:
-            resp = await self.jsonrpc_app(http_request, background_tasks, dependency_cache, req)
-        except BaseError as error:
-            error.bind_req(req)
-            resp = self.get_error_resp(error)
+        # dependency_cache - these are transport-layer dependencies, we pass them to each method, since
+        # they are common to all methods in the batch.
+        # But if the methods have their own dependencies, they are resolved separately.
+        dependency_cache = dependency_cache.copy()
 
-        if 'error' in resp or 'id' in req:
-            return resp
-        else:
-            # No content for notification
-            raise NoContent
+        values, errors, background_tasks, sub_response, _ = await solve_dependencies(
+            request=http_request,
+            dependant=self.dependant,
+            body=req,
+            background_tasks=background_tasks,
+            dependency_overrides_provider=self.dependency_overrides_provider,
+            dependency_cache=dependency_cache,
+        )
 
-    async def jsonrpc_app(self, http_request: Request, background_tasks: BackgroundTasks, dependency_cache, req):
-        try:
-            # dependency_cache - these are transport-layer dependencies, we pass them to each method, since
-            # they are common to all methods in the batch.
-            # But if the methods have their own dependencies, they are resolved separately.
-            dependency_cache = dependency_cache.copy()
-            values, errors, background_tasks, sub_response, _ = await solve_dependencies(
-                request=http_request,
-                dependant=self.dependant,
-                body=req,
-                background_tasks=background_tasks,
-                dependency_overrides_provider=self.dependency_overrides_provider,
-                dependency_cache=dependency_cache,
-            )
+        if errors:
+            raise request_validation_error(RequestValidationError(errors))
 
-            if errors:
-                raise request_validation_error(RequestValidationError(errors))
+        request = values.pop('__request__')  # _Request
 
-            request = values.pop('__request__')  # _Request
+        result = await call_sync_async(self.func, **request.params.dict(), **values)
 
-            result = await call_sync_async(self.func, **request.params.dict(), **values)
-        except BaseError as error:
-            raise error
-        except Exception as exc:
-            logger.exception(str(exc), exc_info=exc)
-            raise InternalError()
-
-        resp = {
+        response = {
             'jsonrpc': '2.0',
             'result': result,
             'id': req.get('id')
         }
 
         # noinspection PyTypeChecker
-        response_data = serialize_response(
+        resp = serialize_response(
             field=self.secure_cloned_response_field,
-            response=resp,
+            response=response,
             include=self.response_model_include,
             exclude=self.response_model_exclude,
             by_alias=self.response_model_by_alias,
             skip_defaults=self.response_model_skip_defaults,
         )
 
-        return response_data
+        return resp
 
 
 @component_name(f'_Request')
@@ -535,10 +532,6 @@ class JsonRpcResponse(BaseModel):
 
     class Config:
         extra = 'forbid'
-
-
-class NoContent(Exception):
-    pass
 
 
 class EntrypointRoute(APIRoute):
@@ -569,10 +562,10 @@ class EntrypointRoute(APIRoute):
             **kwargs,
         )
 
-        self.app = request_response(self.jsonrpc_app_response)
+        self.app = request_response(self.handle_http_request)
         self.entrypoint = entrypoint
 
-    async def solve_dependencies(self, http_request: Request, background_tasks: BackgroundTasks):
+    async def solve_dependencies(self, http_request: Request, background_tasks: BackgroundTasks) -> dict:
         # Must not be empty, otherwise FastAPI re-creates it
         dependency_cache = {(lambda: None, ('', )): 1}
         if self.dependencies:
@@ -586,74 +579,78 @@ class EntrypointRoute(APIRoute):
             )
         return dependency_cache
 
-    async def jsonrpc_app_response(self, http_request: Request):
+    async def parse_body(self, http_request) -> Any:
+        try:
+            body = await http_request.json()
+        except JSONDecodeError:
+            raise ParseError()
+
+        if isinstance(body, list) and not body:
+            raise InvalidRequest(data={'errors': [
+                {'loc': (), 'type': 'value_error.empty', 'msg': 'rpc call with an empty array'}
+            ]})
+
+        return body
+
+    async def handle_http_request(self, http_request: Request):
         background_tasks = BackgroundTasks()
 
         # There may be exceptions to the transport layer, we don’t wrap them in JSON-RPC
         dependency_cache = await self.solve_dependencies(http_request, background_tasks)
 
         try:
-            content = await self._entrypoint(http_request, background_tasks, dependency_cache)
-        except NoContent:
-            return Response(media_type='application/json', background=background_tasks)
+            body = await self.parse_body(http_request)
+        except Exception as exc:
+            resp = await self.entrypoint.handle_exception_to_resp(exc)
         else:
-            return self.response_class(content=content, background=background_tasks)
+            try:
+                resp = await self.handle_body(http_request, background_tasks, dependency_cache, body)
+            except NoContent:
+                # no content for successful notifications
+                return Response(media_type='application/json', background=background_tasks)
 
-    def get_error_resp(self, error: BaseError):
-        return self.entrypoint.get_error_resp(error)
+        return self.response_class(content=resp, background=background_tasks)
 
-    async def _entrypoint(
+    async def handle_body(
         self,
         http_request: Request,
         background_tasks: BackgroundTasks,
-        dependency_cache,
+        dependency_cache: dict,
+        body: Any,
     ):
-        try:
-            body = await http_request.json()
-        except JSONDecodeError:
-            return self.get_error_resp(ParseError())
-
-        if not isinstance(body, list):
-            req_list = [body]
-        else:
-            req_list = body
-            if not req_list:
-                error = InvalidRequest(data={'errors': [
-                    {'loc': (), 'type': 'value_error.empty', 'msg': 'rpc call with an empty array'}
-                ]})
-                return self.get_error_resp(error)
-
         scheduler = await self.entrypoint.get_scheduler()
+
+        if isinstance(body, list):
+            req_list = body
+        else:
+            req_list = [body]
 
         job_list = []
         if len(req_list) > 1:
             # Run concurrently through scheduler
             for req in req_list:
                 job = await scheduler.spawn(
-                    self._single_req_job(http_request, background_tasks, dependency_cache, req)
+                    self.handle_req_to_resp(http_request, background_tasks, dependency_cache, req)
                 )
 
                 # TODO: https://github.com/aio-libs/aiojobs/issues/119
                 job._explicit = True
                 # noinspection PyProtectedMember
-                task = job._do_wait(timeout=None)
+                coro = job._do_wait(timeout=None)
 
-                job_list.append((req, task))
+                job_list.append(coro)
         else:
             req = req_list[0]
-            task = self._single_req_job(http_request, background_tasks, dependency_cache, req)
-            job_list.append((req, task))
+            coro = self.handle_req_to_resp(http_request, background_tasks, dependency_cache, req)
+            job_list.append(coro)
 
         resp_list = []
 
-        for req, task in job_list:
+        for coro in job_list:
             try:
-                resp = await task
-            except BaseError as error:
-                error.bind_req(req)
-                resp = self.get_error_resp(error)
+                resp = await coro
             except NoContent:
-                # No content for notification
+                # No response for successful notifications
                 continue
 
             resp_list.append(resp)
@@ -668,9 +665,23 @@ class EntrypointRoute(APIRoute):
 
         return content
 
-    async def _single_req_job(self, http_request, background_tasks, dependency_cache, req):
-        scope = http_request.scope.copy()
+    async def handle_req_to_resp(
+        self,
+        http_request: Request,
+        background_tasks: BackgroundTasks,
+        dependency_cache: dict,
+        req: Any,
+    ) -> dict:
+        handler_coro = self.handle_req(http_request, background_tasks, dependency_cache, req)
+        return await self.entrypoint.handle_req_to_resp(handler_coro, req)
 
+    async def handle_req(
+        self,
+        http_request: Request,
+        background_tasks: BackgroundTasks,
+        dependency_cache: dict,
+        req: Any,
+    ):
         try:
             JsonRpcRequest.validate(req)
         except DictError:
@@ -680,13 +691,14 @@ class EntrypointRoute(APIRoute):
         except ValidationError as exc:
             raise request_validation_error(exc)
 
+        scope = http_request.scope.copy()
         scope['path'] = self.path + '/' + req['method']
 
         for route in self.entrypoint.routes:
             match, child_scope = route.matches(scope)
             if match == Match.FULL:
                 # http_request is a transport layer and it is common for all JSON-RPC requests in a batch
-                return await route.jsonrpc_app_content(http_request, background_tasks, dependency_cache, req)
+                return await route.handle_req(http_request, background_tasks, dependency_cache, req)
         else:
             raise MethodNotFound()
 
@@ -734,14 +746,43 @@ class Entrypoint(APIRouter):
         self.scheduler = await self.scheduler_factory(**(self.scheduler_kwargs or {}))
         return self.scheduler
 
-    def get_error_resp(self, error: BaseError):
-        return error.get_resp()
+    async def handle_exception(self, exc):
+        raise exc
+
+    async def handle_exception_to_resp(self, exc) -> dict:
+        try:
+            resp = await self.handle_exception(exc)
+        except BaseError as error:
+            resp = error.get_resp()
+        except Exception as exc:
+            logger.exception(str(exc), exc_info=exc)
+            resp = InternalError().get_resp()
+        return resp
+
+    async def handle_req_to_resp(self, handler_coro: Awaitable, req: Any) -> dict:
+        try:
+            resp = await handler_coro
+        except Exception as exc:
+            resp = await self.handle_exception_to_resp(exc)
+
+        # empty response for successful notifications
+        has_content = 'error' in resp or 'id' in req
+
+        if not has_content:
+            raise NoContent
+
+        if isinstance(req, dict):
+            resp['id'] = req.get('id')
+        else:
+            resp['id'] = None
+
+        return resp
 
     def bind_dependency_overrides_provider(self, value):
         for route in self.routes:
             route.dependency_overrides_provider = value
 
-    async def solve_shared_dependencies(self, http_request: Request, background_tasks: BackgroundTasks):
+    async def solve_shared_dependencies(self, http_request: Request, background_tasks: BackgroundTasks) -> dict:
         return await self.entrypoint_route.solve_dependencies(http_request, background_tasks)
 
     def add_method_route(
