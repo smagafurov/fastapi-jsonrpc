@@ -223,6 +223,7 @@ Go to:
 
     http://127.0.0.1:5000/docs
 
+.. image:: ./images/fastapi-jsonrpc.png
 
 Development
 ===========
