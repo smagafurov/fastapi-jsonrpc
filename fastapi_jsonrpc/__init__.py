@@ -1,7 +1,5 @@
 import asyncio
-import inspect
 import logging
-import sys
 from json import JSONDecodeError
 from types import FunctionType, CoroutineType
 from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable
@@ -9,19 +7,18 @@ from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, A
 from pydantic import StrictStr, ValidationError, DictError, Schema
 from pydantic import BaseModel
 from pydantic.main import MetaModel
-from pydantic.utils import resolve_annotations
 from fastapi.dependencies.models import Dependant
 from fastapi.encoders import jsonable_encoder
-from fastapi.params import Depends
+from fastapi.params import Depends, Param
 from fastapi import FastAPI
-from fastapi.dependencies.utils import solve_dependencies, get_dependant, add_non_field_param_to_dependency
+from fastapi.dependencies.utils import solve_dependencies, get_dependant, get_flat_dependant
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute, APIRouter, serialize_response
 from starlette.background import BackgroundTasks
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import Response
-from starlette.routing import Match, request_response
+from starlette.routing import Match, request_response, compile_path
 import fastapi.params
 import aiojobs
 
@@ -29,8 +26,40 @@ import aiojobs
 logger = logging.getLogger(__name__)
 
 
-class Param(fastapi.params.Body):
-    pass
+class Params(fastapi.params.Body):
+    def __init__(
+        self,
+        default: Any,
+        *,
+        media_type: str = "application/json",
+        alias: str = None,
+        title: str = None,
+        description: str = None,
+        gt: float = None,
+        ge: float = None,
+        lt: float = None,
+        le: float = None,
+        min_length: int = None,
+        max_length: int = None,
+        regex: str = None,
+        **extra: Any,
+    ):
+        super().__init__(
+            default,
+            embed=False,
+            media_type=media_type,
+            alias=alias,
+            title=title,
+            description=description,
+            gt=gt,
+            ge=ge,
+            lt=lt,
+            le=le,
+            min_length=min_length,
+            max_length=max_length,
+            regex=regex,
+            **extra,
+        )
 
 
 components = {}
@@ -297,31 +326,53 @@ def errors_responses(errors: Sequence[Type[BaseError]] = None):
     return responses
 
 
-def request_validation_error(
+@component_name(f'_Request')
+class JsonRpcRequest(BaseModel):
+    jsonrpc: StrictStr = Schema('2.0', const=True, example='2.0')
+    id: Union[StrictStr, int] = Schema(None, example=0)
+    method: StrictStr
+    params: dict
+
+    class Config:
+        extra = 'forbid'
+
+
+@component_name(f'_Response')
+class JsonRpcResponse(BaseModel):
+    jsonrpc: StrictStr = Schema('2.0', const=True, example='2.0')
+    id: Union[StrictStr, int] = Schema(None, example=0)
+    result: dict
+
+    class Config:
+        extra = 'forbid'
+
+
+def validation_error(
     exc: ValidationError,
-) -> Union[InvalidRequest, InvalidParams]:
-    params_errors = []
-    request_errors = []
+    error_factory: Type[BaseError]
+) -> BaseError:
+    errors = []
 
     for err in exc.errors():
-        if err['loc'][:3] == ('body', '__request__', 'params') and len(err['loc']) > 3:
-            err['loc'] = err['loc'][3:]
-            target = params_errors
-        elif err['loc'][:2] == ('body', '__request__'):
-            err['loc'] = err['loc'][2:]
-            target = request_errors
-        else:
-            # Errors in the parameters `query`, `cookies`, `headers`, etc. are interpreted as InvalidRequest
-            target = request_errors
+        if err['loc'][:1] == ('body', ):
+            err['loc'] = err['loc'][1:]
+        errors.append(err)
 
-        target.append(err)
-
-    if request_errors:
-        error = InvalidRequest(data={'errors': request_errors})
-    else:
-        error = InvalidParams(data={'errors': params_errors})
+    error = error_factory(data={'errors': errors})
 
     return error
+
+
+def fix_query_dependencies(dependant: Dependant):
+    dependant.body_params.extend(dependant.query_params)
+    dependant.query_params = []
+
+    for field in dependant.body_params:
+        if not isinstance(field.schema, Params):
+            field.schema.embed = True
+
+    for sub_dependant in dependant.dependencies:
+        fix_query_dependencies(sub_dependant)
 
 
 class MethodRoute(APIRoute):
@@ -340,48 +391,43 @@ class MethodRoute(APIRoute):
         name = name or func.__name__
         result_model = result_model or func.__annotations__.get('return')
 
-        parameters = inspect.signature(func).parameters
+        _, path_format, _ = compile_path(path)
+        func_dependant = get_dependant(path=path_format, call=func)
+        fix_query_dependencies(func_dependant)
+        flat_dependant = get_flat_dependant(func_dependant)
 
-        if '__request__' in parameters:
-            raise RuntimeError("Parameter name '__request__' reserved, please use other name")
+        whole_params_list = [p for p in flat_dependant.body_params if isinstance(p.schema, Params)]
+        if len(whole_params_list):
+            if len(whole_params_list) > 1:
+                raise RuntimeError(
+                    f"Only one 'Params' schema allowed: "
+                    f"params={whole_params_list}"
+                )
+            body_params_list = [p for p in flat_dependant.body_params if not isinstance(p.schema, Params)]
+            if body_params_list:
+                raise RuntimeError(
+                    f"No other params allowed when 'Params' schema used: "
+                    f"params={whole_params_list}, other={body_params_list}"
+                )
 
-        for param_name, param in parameters.items():
-            if isinstance(param.default, Param):
-                continue
-            if isinstance(param.default, fastapi.params.Body):
-                # body is already taken by the body of the JSON-RPC request
-                raise RuntimeError(f"There can be no Body-parameters for the JSON-RPC method: {param_name}")
+        if whole_params_list:
+            _JsonRpcRequestParams = whole_params_list[0].type_
+            params_schema = whole_params_list[0].schema
+        else:
+            ns = {field.name: field.schema for field in flat_dependant.body_params}
+            ns['__annotations__'] = {field.name: field.type_ for field in flat_dependant.body_params}
 
-        annotations = func.__annotations__
-        if sys.version_info >= (3, 7):
-            annotations = resolve_annotations(annotations, func.__module__)
+            _JsonRpcRequestParams = MetaModel.__new__(MetaModel, '_JsonRpcRequestParams', (BaseModel, ), ns)
+            _JsonRpcRequestParams = component_name(f'_Params[{name}]', func.__module__)(_JsonRpcRequestParams)
 
-        def is_jsonrpc_param(n):
-            p = parameters[n]
-            if p.default == p.empty:
-                if n in annotations:
-                    dummy_dependant = Dependant()
-                    if isinstance(p.annotation, str):
-                        p = p.replace(annotation=annotations[n])
-                    if add_non_field_param_to_dependency(param=p, dependant=dummy_dependant):
-                        return False
-                return True
-            if isinstance(p.default, Param):
-                return True
-            return False
-
-        ns = {n: p.default for n, p in parameters.items() if p.default != p.empty and is_jsonrpc_param(n)}
-        ns['__annotations__'] = {n: v for n, v in annotations.items() if n != 'return' and is_jsonrpc_param(n)}
-
-        _JsonRpcRequestParams = MetaModel.__new__(MetaModel, '_JsonRpcRequestParams', (BaseModel, ), ns)
-        _JsonRpcRequestParams = component_name(f'_Params[{name}]', func.__module__)(_JsonRpcRequestParams)
+            params_schema = Schema(...)
 
         @component_name(f'_Request[{name}]', func.__module__)
         class _Request(BaseModel):
             jsonrpc: StrictStr = Schema('2.0', const=True, example='2.0')
             id: Union[StrictStr, int] = Schema(None, example=0)
             method: StrictStr = Schema(name, const=True, example=name)
-            params: _JsonRpcRequestParams
+            params: _JsonRpcRequestParams = params_schema
 
             class Config:
                 extra = 'forbid'
@@ -415,22 +461,8 @@ class MethodRoute(APIRoute):
             **kwargs,
         )
 
-        # Add dependencies and other parameters from func
-        dependant = get_dependant(path=self.path_format, call=func)
-        self.dependant.path_params = dependant.path_params
-        self.dependant.query_params = [p for p in dependant.query_params if not is_jsonrpc_param(p.name)]
-        self.dependant.header_params = dependant.header_params
-        self.dependant.cookie_params = dependant.cookie_params
-        self.dependant.dependencies = dependant.dependencies
-        self.dependant.security_requirements = dependant.security_requirements
-        self.dependant.request_param_name = dependant.request_param_name
-        self.dependant.websocket_param_name = dependant.websocket_param_name
-        self.dependant.response_param_name = dependant.response_param_name
-        self.dependant.background_tasks_param_name = dependant.background_tasks_param_name
-        self.dependant.security_scopes = dependant.security_scopes
-        self.dependant.security_scopes_param_name = dependant.security_scopes_param_name
-
         self.func = func
+        self.func_dependant = func_dependant
         self.entrypoint = entrypoint
         self.app = request_response(self.handle_http_request)
         self.shared_dependencies = shared_dependencies
@@ -478,6 +510,20 @@ class MethodRoute(APIRoute):
         dependency_cache: dict,
         req: Any,
     ):
+        try:
+            JsonRpcRequest.validate(req)
+        except DictError:
+            raise InvalidRequest(data={'errors': [{
+                'loc': (),
+                'type': 'type_error.dict',
+                'msg': "value is not a valid dict",
+            }]})
+        except ValidationError as exc:
+            raise validation_error(exc, InvalidRequest)
+
+        if req['method'] != self.name:
+            raise MethodNotFound
+
         # dependency_cache - these are transport-layer dependencies, we pass them to each method, since
         # they are common to all methods in the batch.
         # But if the methods have their own dependencies, they are resolved separately.
@@ -485,19 +531,17 @@ class MethodRoute(APIRoute):
 
         values, errors, background_tasks, sub_response, _ = await solve_dependencies(
             request=http_request,
-            dependant=self.dependant,
-            body=req,
+            dependant=self.func_dependant,
+            body=req['params'],
             background_tasks=background_tasks,
             dependency_overrides_provider=self.dependency_overrides_provider,
             dependency_cache=dependency_cache,
         )
 
         if errors:
-            raise request_validation_error(RequestValidationError(errors))
+            raise validation_error(RequestValidationError(errors), InvalidParams)
 
-        request = values.pop('__request__')  # _Request
-
-        result = await call_sync_async(self.func, **request.params.dict(), **values)
+        result = await call_sync_async(self.func, **values)
 
         response = {
             'jsonrpc': '2.0',
@@ -516,27 +560,6 @@ class MethodRoute(APIRoute):
         )
 
         return resp
-
-
-@component_name(f'_Request')
-class JsonRpcRequest(BaseModel):
-    jsonrpc: StrictStr = Schema('2.0', const=True, example='2.0')
-    id: Union[StrictStr, int] = Schema(None, example=0)
-    method: StrictStr
-    params: dict
-
-    class Config:
-        extra = 'forbid'
-
-
-@component_name(f'_Response')
-class JsonRpcResponse(BaseModel):
-    jsonrpc: StrictStr = Schema('2.0', const=True, example='2.0')
-    id: Union[StrictStr, int] = Schema(None, example=0)
-    result: dict
-
-    class Config:
-        extra = 'forbid'
 
 
 class EntrypointRoute(APIRoute):
@@ -694,7 +717,7 @@ class EntrypointRoute(APIRoute):
                 {'loc': (), 'type': 'type_error.dict', 'msg': 'value is not a valid dict'}
             ]})
         except ValidationError as exc:
-            raise request_validation_error(exc)
+            raise validation_error(exc, InvalidRequest)
 
         scope = http_request.scope.copy()
         scope['path'] = self.path + '/' + req['method']
