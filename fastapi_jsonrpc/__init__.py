@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import logging
 from json import JSONDecodeError
 from types import FunctionType, CoroutineType
@@ -11,7 +12,8 @@ from fastapi.dependencies.models import Dependant
 from fastapi.encoders import jsonable_encoder
 from fastapi.params import Depends
 from fastapi import FastAPI, Body
-from fastapi.dependencies.utils import solve_dependencies, get_dependant, get_flat_dependant
+from fastapi.dependencies.utils import solve_dependencies, get_dependant, get_flat_dependant, \
+    get_parameterless_sub_dependant
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute, APIRouter, serialize_response
 from starlette.background import BackgroundTasks
@@ -347,20 +349,22 @@ class JsonRpcResponse(BaseModel):
         extra = 'forbid'
 
 
-def validation_error(
-    exc: ValidationError,
-    error_factory: Type[BaseError]
-) -> BaseError:
+def invalid_request_from_validation_error(exc: ValidationError) -> InvalidRequest:
+    return InvalidRequest(data={'errors': exc.errors()})
+
+
+def invalid_params_from_validation_error(exc: ValidationError) -> InvalidParams:
     errors = []
 
     for err in exc.errors():
         if err['loc'][:1] == ('body', ):
             err['loc'] = err['loc'][1:]
+        else:
+            assert err['loc']
+            err['loc'] = (f"<{err['loc'][0]}>", ) + err['loc'][1:]
         errors.append(err)
 
-    error = error_factory(data={'errors': errors})
-
-    return error
+    return InvalidParams(data={'errors': errors})
 
 
 def fix_query_dependencies(dependant: Dependant):
@@ -375,6 +379,80 @@ def fix_query_dependencies(dependant: Dependant):
         fix_query_dependencies(sub_dependant)
 
 
+def clone_dependant(dependant: Dependant) -> Dependant:
+    new_dependant = Dependant()
+    new_dependant.path_params = dependant.path_params
+    new_dependant.query_params = dependant.query_params
+    new_dependant.header_params = dependant.header_params
+    new_dependant.cookie_params = dependant.cookie_params
+    new_dependant.body_params = dependant.body_params
+    new_dependant.dependencies = dependant.dependencies
+    new_dependant.security_requirements = dependant.security_requirements
+    new_dependant.request_param_name = dependant.request_param_name
+    new_dependant.websocket_param_name = dependant.websocket_param_name
+    new_dependant.response_param_name = dependant.response_param_name
+    new_dependant.background_tasks_param_name = dependant.background_tasks_param_name
+    new_dependant.security_scopes = dependant.security_scopes
+    new_dependant.security_scopes_param_name = dependant.security_scopes_param_name
+    new_dependant.name = dependant.name
+    new_dependant.call = dependant.call
+    new_dependant.use_cache = dependant.use_cache
+    new_dependant.path = dependant.path
+    new_dependant.cache_key = dependant.cache_key
+    return new_dependant
+
+
+def insert_dependencies(target: Dependant, dependencies: Sequence[Depends] = None):
+    assert target.path
+    if not dependencies:
+        return
+    for depends in dependencies[::-1]:
+        target.dependencies.insert(
+            0,
+            get_parameterless_sub_dependant(depends=depends, path=target.path),
+        )
+
+
+def make_request_model(name, module, body_params):
+    whole_params_list = [p for p in body_params if isinstance(p.schema, Params)]
+    if len(whole_params_list):
+        if len(whole_params_list) > 1:
+            raise RuntimeError(
+                f"Only one 'Params' schema allowed: "
+                f"params={whole_params_list}"
+            )
+        body_params_list = [p for p in body_params if not isinstance(p.schema, Params)]
+        if body_params_list:
+            raise RuntimeError(
+                f"No other params allowed when 'Params' schema used: "
+                f"params={whole_params_list}, other={body_params_list}"
+            )
+
+    if whole_params_list:
+        _JsonRpcRequestParams = whole_params_list[0].type_
+        params_schema = whole_params_list[0].schema
+    else:
+        ns = {field.name: field.schema for field in body_params}
+        ns['__annotations__'] = {field.name: field.type_ for field in body_params}
+
+        _JsonRpcRequestParams = MetaModel.__new__(MetaModel, '_JsonRpcRequestParams', (BaseModel, ), ns)
+        _JsonRpcRequestParams = component_name(f'_Params[{name}]', module)(_JsonRpcRequestParams)
+
+        params_schema = Schema(...)
+
+    @component_name(f'_Request[{name}]', module)
+    class _Request(BaseModel):
+        jsonrpc: StrictStr = Schema('2.0', const=True, example='2.0')
+        id: Union[StrictStr, int] = Schema(None, example=0)
+        method: StrictStr = Schema(name, const=True, example=name)
+        params: _JsonRpcRequestParams = params_schema
+
+        class Config:
+            extra = 'forbid'
+
+    return _Request
+
+
 class MethodRoute(APIRoute):
     def __init__(
         self,
@@ -385,7 +463,7 @@ class MethodRoute(APIRoute):
         result_model: Type[Any] = None,
         name: str = None,
         errors: Sequence[Type[BaseError]] = None,
-        shared_dependencies: list = None,
+        dependencies: Sequence[Depends] = None,
         **kwargs,
     ):
         name = name or func.__name__
@@ -393,44 +471,12 @@ class MethodRoute(APIRoute):
 
         _, path_format, _ = compile_path(path)
         func_dependant = get_dependant(path=path_format, call=func)
+        insert_dependencies(func_dependant, dependencies)
+        insert_dependencies(func_dependant, entrypoint.common_dependencies)
         fix_query_dependencies(func_dependant)
         flat_dependant = get_flat_dependant(func_dependant)
 
-        whole_params_list = [p for p in flat_dependant.body_params if isinstance(p.schema, Params)]
-        if len(whole_params_list):
-            if len(whole_params_list) > 1:
-                raise RuntimeError(
-                    f"Only one 'Params' schema allowed: "
-                    f"params={whole_params_list}"
-                )
-            body_params_list = [p for p in flat_dependant.body_params if not isinstance(p.schema, Params)]
-            if body_params_list:
-                raise RuntimeError(
-                    f"No other params allowed when 'Params' schema used: "
-                    f"params={whole_params_list}, other={body_params_list}"
-                )
-
-        if whole_params_list:
-            _JsonRpcRequestParams = whole_params_list[0].type_
-            params_schema = whole_params_list[0].schema
-        else:
-            ns = {field.name: field.schema for field in flat_dependant.body_params}
-            ns['__annotations__'] = {field.name: field.type_ for field in flat_dependant.body_params}
-
-            _JsonRpcRequestParams = MetaModel.__new__(MetaModel, '_JsonRpcRequestParams', (BaseModel, ), ns)
-            _JsonRpcRequestParams = component_name(f'_Params[{name}]', func.__module__)(_JsonRpcRequestParams)
-
-            params_schema = Schema(...)
-
-        @component_name(f'_Request[{name}]', func.__module__)
-        class _Request(BaseModel):
-            jsonrpc: StrictStr = Schema('2.0', const=True, example='2.0')
-            id: Union[StrictStr, int] = Schema(None, example=0)
-            method: StrictStr = Schema(name, const=True, example=name)
-            params: _JsonRpcRequestParams = params_schema
-
-            class Config:
-                extra = 'forbid'
+        _Request = make_request_model(name, func.__module__, flat_dependant.body_params)
 
         @component_name(f'_Response[{name}]', func.__module__)
         class _Response(BaseModel):
@@ -461,11 +507,17 @@ class MethodRoute(APIRoute):
             **kwargs,
         )
 
+        # Add dependencies and other parameters from func_dependant for correct OpenAPI generation
+        self.dependant.path_params = func_dependant.path_params
+        self.dependant.header_params = func_dependant.header_params
+        self.dependant.cookie_params = func_dependant.cookie_params
+        self.dependant.dependencies = func_dependant.dependencies
+        self.dependant.security_requirements = func_dependant.security_requirements
+
         self.func = func
         self.func_dependant = func_dependant
         self.entrypoint = entrypoint
         self.app = request_response(self.handle_http_request)
-        self.shared_dependencies = shared_dependencies
 
     async def parse_body(self, http_request) -> Any:
         try:
@@ -477,38 +529,61 @@ class MethodRoute(APIRoute):
     async def handle_http_request(self, http_request: Request):
         background_tasks = BackgroundTasks()
 
-        # There may be exceptions to the transport layer, we don’t wrap them in JSON-RPC
-        dependency_cache = await self.entrypoint.solve_shared_dependencies(http_request, background_tasks)
-
         try:
             body = await self.parse_body(http_request)
         except Exception as exc:
             resp = await self.entrypoint.handle_exception_to_resp(exc)
         else:
             try:
-                resp = await self.handle_req_to_resp(http_request, background_tasks, dependency_cache, body)
+                resp = await self.handle_body(http_request, background_tasks, body)
             except NoContent:
                 # no content for successful notifications
                 return Response(media_type='application/json', background=background_tasks)
 
         return self.response_class(content=resp, background=background_tasks)
 
+    async def handle_body(
+        self,
+        http_request: Request,
+        background_tasks: BackgroundTasks,
+        body: Any,
+    ) -> dict:
+        # Shared dependencies for all requests in one json-rpc batch request
+        shared_dependencies_error = None
+        try:
+            dependency_cache = await self.entrypoint.solve_shared_dependencies(http_request, background_tasks)
+        except BaseError as error:
+            shared_dependencies_error = error
+            dependency_cache = None
+
+        return await self.handle_req_to_resp(
+            http_request, background_tasks, body,
+            dependency_cache=dependency_cache,
+            shared_dependencies_error=shared_dependencies_error,
+        )
+
     async def handle_req_to_resp(
         self,
         http_request: Request,
         background_tasks: BackgroundTasks,
-        dependency_cache: dict,
         req: Any,
+        dependency_cache: dict = None,
+        shared_dependencies_error: BaseError = None
     ) -> dict:
-        handler_coro = self.handle_req(http_request, background_tasks, dependency_cache, req)
+        handler_coro = self.handle_req(
+            http_request, background_tasks, req,
+            dependency_cache=dependency_cache,
+            shared_dependencies_error=shared_dependencies_error,
+        )
         return await self.entrypoint.handle_req_to_resp(handler_coro, req)
 
     async def handle_req(
         self,
         http_request: Request,
         background_tasks: BackgroundTasks,
-        dependency_cache: dict,
         req: Any,
+        dependency_cache: dict = None,
+        shared_dependencies_error: BaseError = None
     ):
         try:
             JsonRpcRequest.validate(req)
@@ -519,12 +594,15 @@ class MethodRoute(APIRoute):
                 'msg': "value is not a valid dict",
             }]})
         except ValidationError as exc:
-            raise validation_error(exc, InvalidRequest)
+            raise invalid_request_from_validation_error(exc)
 
         if req['method'] != self.name:
             raise MethodNotFound
 
-        # dependency_cache - these are transport-layer dependencies, we pass them to each method, since
+        if shared_dependencies_error:
+            raise shared_dependencies_error
+
+        # dependency_cache - there are shared dependencies, we pass them to each method, since
         # they are common to all methods in the batch.
         # But if the methods have their own dependencies, they are resolved separately.
         dependency_cache = dependency_cache.copy()
@@ -539,7 +617,7 @@ class MethodRoute(APIRoute):
         )
 
         if errors:
-            raise validation_error(RequestValidationError(errors), InvalidParams)
+            raise invalid_params_from_validation_error(RequestValidationError(errors))
 
         result = await call_sync_async(self.func, **values)
 
@@ -570,12 +648,26 @@ class EntrypointRoute(APIRoute):
         *,
         name: str = None,
         errors: Sequence[Type[BaseError]] = None,
+        common_dependencies: Sequence[Depends] = None,
         **kwargs,
     ):
         name = name or 'entrypoint'
 
+        _, path_format, _ = compile_path(path)
+
+        _Request = JsonRpcRequest
+
+        common_dependant = Dependant(path=path_format)
+        if common_dependencies:
+            insert_dependencies(common_dependant, common_dependencies)
+            fix_query_dependencies(common_dependant)
+            common_dependant = get_flat_dependant(common_dependant)
+
+            if common_dependant.body_params:
+                _Request = make_request_model(name, entrypoint.callee_module, common_dependant.body_params)
+
         # This is only necessary for generating OpenAPI
-        def endpoint(__request__: JsonRpcRequest):
+        def endpoint(__request__: _Request):
             del __request__
 
         responses = errors_responses(errors)
@@ -590,21 +682,51 @@ class EntrypointRoute(APIRoute):
             **kwargs,
         )
 
+        flat_dependant = get_flat_dependant(self.dependant)
+
+        if len(flat_dependant.body_params) > 1:
+            body_params = [p for p in flat_dependant.body_params if p.type_ is not _Request]
+            raise RuntimeError(
+                f"Entrypoint shared dependencies can't use 'Body' parameters: "
+                f"params={body_params}"
+            )
+
+        if flat_dependant.query_params:
+            raise RuntimeError(
+                f"Entrypoint shared dependencies can't use 'Query' parameters: "
+                f"params={flat_dependant.query_params}"
+            )
+
+        self.shared_dependant = clone_dependant(self.dependant)
+
+        # No shared 'Body' params, because each JSON-RPC request in batch has own body
+        self.shared_dependant.body_params = []
+
+        # Add dependencies and other parameters from common_dependant for correct OpenAPI generation
+        self.dependant.path_params.extend(common_dependant.path_params)
+        self.dependant.header_params.extend(common_dependant.header_params)
+        self.dependant.cookie_params.extend(common_dependant.cookie_params)
+        self.dependant.dependencies.extend(common_dependant.dependencies)
+        self.dependant.security_requirements.extend(common_dependant.security_requirements)
+
         self.app = request_response(self.handle_http_request)
         self.entrypoint = entrypoint
+        self.common_dependencies = common_dependencies
 
-    async def solve_dependencies(self, http_request: Request, background_tasks: BackgroundTasks) -> dict:
+    async def solve_shared_dependencies(self, http_request: Request, background_tasks: BackgroundTasks) -> dict:
         # Must not be empty, otherwise FastAPI re-creates it
         dependency_cache = {(lambda: None, ('', )): 1}
         if self.dependencies:
-            await solve_dependencies(
+            _, errors, _, _, _ = await solve_dependencies(
                 request=http_request,
-                dependant=self.dependant,
+                dependant=self.shared_dependant,
                 body=None,
                 background_tasks=background_tasks,
                 dependency_overrides_provider=self.dependency_overrides_provider,
                 dependency_cache=dependency_cache,
             )
+            if errors:
+                raise invalid_params_from_validation_error(RequestValidationError(errors))
         return dependency_cache
 
     async def parse_body(self, http_request) -> Any:
@@ -623,16 +745,13 @@ class EntrypointRoute(APIRoute):
     async def handle_http_request(self, http_request: Request):
         background_tasks = BackgroundTasks()
 
-        # There may be exceptions to the transport layer, we don’t wrap them in JSON-RPC
-        dependency_cache = await self.solve_dependencies(http_request, background_tasks)
-
         try:
             body = await self.parse_body(http_request)
         except Exception as exc:
             resp = await self.entrypoint.handle_exception_to_resp(exc)
         else:
             try:
-                resp = await self.handle_body(http_request, background_tasks, dependency_cache, body)
+                resp = await self.handle_body(http_request, background_tasks, body)
             except NoContent:
                 # no content for successful notifications
                 return Response(media_type='application/json', background=background_tasks)
@@ -643,9 +762,16 @@ class EntrypointRoute(APIRoute):
         self,
         http_request: Request,
         background_tasks: BackgroundTasks,
-        dependency_cache: dict,
         body: Any,
-    ):
+    ) -> dict:
+        # Shared dependencies for all requests in one json-rpc batch request
+        shared_dependencies_error = None
+        try:
+            dependency_cache = await self.solve_shared_dependencies(http_request, background_tasks)
+        except BaseError as error:
+            shared_dependencies_error = error
+            dependency_cache = None
+
         scheduler = await self.entrypoint.get_scheduler()
 
         if isinstance(body, list):
@@ -658,7 +784,11 @@ class EntrypointRoute(APIRoute):
             # Run concurrently through scheduler
             for req in req_list:
                 job = await scheduler.spawn(
-                    self.handle_req_to_resp(http_request, background_tasks, dependency_cache, req)
+                    self.handle_req_to_resp(
+                        http_request, background_tasks, req,
+                        dependency_cache=dependency_cache,
+                        shared_dependencies_error=shared_dependencies_error,
+                    )
                 )
 
                 # TODO: https://github.com/aio-libs/aiojobs/issues/119
@@ -669,7 +799,11 @@ class EntrypointRoute(APIRoute):
                 job_list.append(coro)
         else:
             req = req_list[0]
-            coro = self.handle_req_to_resp(http_request, background_tasks, dependency_cache, req)
+            coro = self.handle_req_to_resp(
+                http_request, background_tasks, req,
+                dependency_cache=dependency_cache,
+                shared_dependencies_error=shared_dependencies_error,
+            )
             job_list.append(coro)
 
         resp_list = []
@@ -697,18 +831,24 @@ class EntrypointRoute(APIRoute):
         self,
         http_request: Request,
         background_tasks: BackgroundTasks,
-        dependency_cache: dict,
         req: Any,
+        dependency_cache: dict = None,
+        shared_dependencies_error: BaseError = None
     ) -> dict:
-        handler_coro = self.handle_req(http_request, background_tasks, dependency_cache, req)
+        handler_coro = self.handle_req(
+            http_request, background_tasks, req,
+            dependency_cache=dependency_cache,
+            shared_dependencies_error=shared_dependencies_error,
+        )
         return await self.entrypoint.handle_req_to_resp(handler_coro, req)
 
     async def handle_req(
         self,
         http_request: Request,
         background_tasks: BackgroundTasks,
-        dependency_cache: dict,
         req: Any,
+        dependency_cache: dict = None,
+        shared_dependencies_error: BaseError = None
     ):
         try:
             JsonRpcRequest.validate(req)
@@ -717,7 +857,7 @@ class EntrypointRoute(APIRoute):
                 {'loc': (), 'type': 'type_error.dict', 'msg': 'value is not a valid dict'}
             ]})
         except ValidationError as exc:
-            raise validation_error(exc, InvalidRequest)
+            raise invalid_request_from_validation_error(exc)
 
         scope = http_request.scope.copy()
         scope['path'] = self.path + '/' + req['method']
@@ -726,7 +866,11 @@ class EntrypointRoute(APIRoute):
             match, child_scope = route.matches(scope)
             if match == Match.FULL:
                 # http_request is a transport layer and it is common for all JSON-RPC requests in a batch
-                return await route.handle_req(http_request, background_tasks, dependency_cache, req)
+                return await route.handle_req(
+                    http_request, background_tasks, req,
+                    dependency_cache=dependency_cache,
+                    shared_dependencies_error=shared_dependencies_error,
+                )
         else:
             raise MethodNotFound()
 
@@ -745,6 +889,8 @@ class Entrypoint(APIRouter):
         *,
         name: str = None,
         errors: Sequence[Type[BaseError]] = None,
+        dependencies: Sequence[Depends] = None,
+        common_dependencies: Sequence[Depends] = None,
         scheduler_factory: Callable[..., Awaitable[aiojobs.Scheduler]] = aiojobs.create_scheduler,
         scheduler_kwargs: dict = None,
         **kwargs,
@@ -755,14 +901,21 @@ class Entrypoint(APIRouter):
         self.scheduler_factory = scheduler_factory
         self.scheduler_kwargs = scheduler_kwargs
         self.scheduler = None
+        self.callee_module = inspect.getmodule(inspect.stack()[1][0]).__name__
         self.entrypoint_route = self.entrypoint_route_class(
             self,
             path,
             name=name,
             errors=errors,
+            dependencies=dependencies,
+            common_dependencies=common_dependencies,
             **kwargs,
         )
         self.routes.append(self.entrypoint_route)
+
+    @property
+    def common_dependencies(self):
+        return self.entrypoint_route.common_dependencies
 
     async def shutdown(self):
         if self.scheduler is not None:
@@ -811,7 +964,7 @@ class Entrypoint(APIRouter):
             route.dependency_overrides_provider = value
 
     async def solve_shared_dependencies(self, http_request: Request, background_tasks: BackgroundTasks) -> dict:
-        return await self.entrypoint_route.solve_dependencies(http_request, background_tasks)
+        return await self.entrypoint_route.solve_shared_dependencies(http_request, background_tasks)
 
     def add_method_route(
         self,
