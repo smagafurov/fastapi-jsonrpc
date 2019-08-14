@@ -24,7 +24,7 @@ if os.path.exists(readme_path):
 setup(
     long_description=readme,
     name='fastapi-jsonrpc',
-    version='0.1.18',
+    version='0.1.19',
     description='JSON-RPC server based on fastapi',
     python_requires='==3.*,>=3.6.0',
     project_urls={'homepage': 'https://github.com/smagafurov/fastapi-jsonrpc', 'repository': 'https://github.com/smagafurov/fastapi-jsonrpc'},
