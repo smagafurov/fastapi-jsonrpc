@@ -22,8 +22,8 @@ Usage
 .. code:: python
 
     import fastapi_jsonrpc as jsonrpc
-    from fastapi_jsonrpc import Param
     from pydantic import BaseModel
+    from fastapi import Body
 
 
     app = jsonrpc.API()
@@ -41,7 +41,7 @@ Usage
 
     @api_v1.method(errors=[MyError])
     def echo(
-        data: str = Param(..., example='123'),
+        data: str = Body(..., example='123'),
     ) -> str:
         if data == 'error':
             raise MyError(data={'details': 'error'})

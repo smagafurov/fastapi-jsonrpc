@@ -9,8 +9,8 @@ from pydantic import BaseModel
 from pydantic.main import MetaModel
 from fastapi.dependencies.models import Dependant
 from fastapi.encoders import jsonable_encoder
-from fastapi.params import Depends, Param
-from fastapi import FastAPI
+from fastapi.params import Depends
+from fastapi import FastAPI, Body
 from fastapi.dependencies.utils import solve_dependencies, get_dependant, get_flat_dependant
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute, APIRouter, serialize_response
@@ -877,7 +877,7 @@ if __name__ == '__main__':
 
     @api_v1.method(errors=[MyError])
     def echo(
-        data: str = Param(..., example='123'),
+        data: str = Body(..., example='123'),
     ) -> str:
         if data == 'error':
             raise MyError(data={'details': 'error'})
