@@ -1000,10 +1000,14 @@ class Entrypoint(APIRouter):
 class API(FastAPI):
     def openapi(self):
         result = super().openapi()
-        result['components']['schemas'].pop('ValidationError', None)
-        result['components']['schemas'].pop('HTTPValidationError', None)
-        list(result['paths'][k][k1]['responses'].pop('422', None)
-             for k in result['paths'].keys() for k1 in result['paths'][k].keys())
+        try:
+            result['components']['schemas'].pop('ValidationError', None)
+            result['components']['schemas'].pop('HTTPValidationError', None)
+            list(result['paths'][k][k1]['responses'].pop('422', None)
+                 for k in result['paths'].keys() for k1 in result['paths'][k].keys())
+        except KeyError:
+            # Empty API (no components, no paths)
+            pass
         return result
 
     def bind_entrypoint(self, ep: Entrypoint):
