@@ -152,7 +152,7 @@ FastAPI dependencies usage example
         # this will become the header-parameter of json-rpc method that uses this dependency
         auth_token: str = Header(
             ...,
-            alias='HTTP_AUTH_TOKEN',
+            alias='user-auth-token',
         ),
     ) -> User:
         return get_user_by_token(auth_token)
@@ -177,7 +177,7 @@ FastAPI dependencies usage example
     api_v1 = jsonrpc.Entrypoint(
         # Swagger shows for entrypoint common parameters gathered by dependencies and common_dependencies:
         #    - json-rpc-parameter 'account_id'
-        #    - header parameter 'HTTP_AUTH_TOKEN'
+        #    - header parameter 'user-auth-token'
         '/api/v1/jsonrpc',
         errors=common_errors,
         # this dependencies called once for whole json-rpc batch request
@@ -189,7 +189,7 @@ FastAPI dependencies usage example
 
     # JSON-RPC methods of this entrypoint
 
-    # this json-rpc method has one json-rpc-parameter 'account_id' and one header parameter 'HTTP_AUTH_TOKEN'
+    # this json-rpc method has one json-rpc-parameter 'account_id' and one header parameter 'user-auth-token'
     @api_v1.method()
     def get_balance(
         account: Account = Depends(get_account),
@@ -197,7 +197,7 @@ FastAPI dependencies usage example
         return f'{account.balance} {account.currency}'
 
 
-    # this json-rpc method has two json-rpc-parameters 'account_id', 'amount' and one header parameter 'HTTP_AUTH_TOKEN'
+    # this json-rpc method has two json-rpc-parameters 'account_id', 'amount' and one header parameter 'user-auth-token'
     @api_v1.method(errors=[NotEnoughMoney])
     def withdraw(
         account: Account = Depends(get_account),
