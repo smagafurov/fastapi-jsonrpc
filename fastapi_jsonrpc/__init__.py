@@ -33,7 +33,7 @@ class Params(fastapi.params.Body):
         self,
         default: Any,
         *,
-        media_type: str = "application/json",
+        media_type: str = 'application/json',
         alias: str = None,
         title: str = None,
         description: str = None,
@@ -77,7 +77,7 @@ def component_name(name: str, module: str = None):
         if key in components:
             if components[key].schema() != obj.schema():
                 raise RuntimeError(
-                    f'Different models with the same name detected: {obj!r} != {components[key]}'
+                    f"Different models with the same name detected: {obj!r} != {components[key]}"
                 )
             return components[key]
         components[key] = obj
@@ -138,9 +138,9 @@ class BaseError(Exception):
         return data
 
     def __str__(self):
-        s = f'[{self.CODE}] {self.MESSAGE}'
+        s = f"[{self.CODE}] {self.MESSAGE}"
         if self.data:
-            s += f': {self.data!r}'
+            s += f": {self.data!r}"
         return s
 
     def get_resp_data(self):
@@ -150,12 +150,12 @@ class BaseError(Exception):
     def get_description(cls):
         s = cls.get_default_description()
         if cls.__doc__:
-            s += '\n\n' + cls.__doc__
+            s += "\n\n" + cls.__doc__
         return s
 
     @classmethod
     def get_default_description(cls):
-        return f'[{cls.CODE}] {cls.MESSAGE}'
+        return f"[{cls.CODE}] {cls.MESSAGE}"
 
     def get_resp(self):
         error = {
@@ -272,33 +272,33 @@ class ErrorModel(BaseModel):
 class ParseError(BaseError):
     """Invalid JSON was received by the server"""
     CODE = -32700
-    MESSAGE = 'Parse error'
+    MESSAGE = "Parse error"
 
 
 class InvalidRequest(BaseError):
     """The JSON sent is not a valid Request object"""
     CODE = -32600
-    MESSAGE = 'Invalid Request'
+    MESSAGE = "Invalid Request"
     error_model = ErrorModel
 
 
 class MethodNotFound(BaseError):
     """The method does not exist / is not available"""
     CODE = -32601
-    MESSAGE = 'Method not found'
+    MESSAGE = "Method not found"
 
 
 class InvalidParams(BaseError):
     """Invalid method parameter(s)"""
     CODE = -32602
-    MESSAGE = 'Invalid params'
+    MESSAGE = "Invalid params"
     error_model = ErrorModel
 
 
 class InternalError(BaseError):
     """Internal JSON-RPC error"""
     CODE = -32603
-    MESSAGE = 'Internal error'
+    MESSAGE = "Internal error"
 
 
 class NoContent(Exception):
@@ -474,7 +474,7 @@ class MethodRoute(APIRoute):
         insert_dependencies(func_dependant, dependencies)
         insert_dependencies(func_dependant, entrypoint.common_dependencies)
         fix_query_dependencies(func_dependant)
-        flat_dependant = get_flat_dependant(func_dependant)
+        flat_dependant = get_flat_dependant(func_dependant, skip_repeats=True)
 
         _Request = make_request_model(name, func.__module__, flat_dependant.body_params)
 
@@ -661,7 +661,7 @@ class EntrypointRoute(APIRoute):
         if common_dependencies:
             insert_dependencies(common_dependant, common_dependencies)
             fix_query_dependencies(common_dependant)
-            common_dependant = get_flat_dependant(common_dependant)
+            common_dependant = get_flat_dependant(common_dependant, skip_repeats=True)
 
             if common_dependant.body_params:
                 _Request = make_request_model(name, entrypoint.callee_module, common_dependant.body_params)
@@ -682,7 +682,7 @@ class EntrypointRoute(APIRoute):
             **kwargs,
         )
 
-        flat_dependant = get_flat_dependant(self.dependant)
+        flat_dependant = get_flat_dependant(self.dependant, skip_repeats=True)
 
         if len(flat_dependant.body_params) > 1:
             body_params = [p for p in flat_dependant.body_params if p.type_ is not _Request]
@@ -737,7 +737,7 @@ class EntrypointRoute(APIRoute):
 
         if isinstance(body, list) and not body:
             raise InvalidRequest(data={'errors': [
-                {'loc': (), 'type': 'value_error.empty', 'msg': 'rpc call with an empty array'}
+                {'loc': (), 'type': 'value_error.empty', 'msg': "rpc call with an empty array"}
             ]})
 
         return body
@@ -854,7 +854,7 @@ class EntrypointRoute(APIRoute):
             JsonRpcRequest.validate(req)
         except DictError:
             raise InvalidRequest(data={'errors': [
-                {'loc': (), 'type': 'type_error.dict', 'msg': 'value is not a valid dict'}
+                {'loc': (), 'type': 'type_error.dict', 'msg': "value is not a valid dict"}
             ]})
         except ValidationError as exc:
             raise invalid_request_from_validation_error(exc)
@@ -1026,7 +1026,7 @@ if __name__ == '__main__':
 
     class MyError(BaseError):
         CODE = 5000
-        MESSAGE = 'My error'
+        MESSAGE = "My error"
 
         class DataModel(BaseModel):
             details: str
