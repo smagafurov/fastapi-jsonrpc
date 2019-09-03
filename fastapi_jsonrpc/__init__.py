@@ -314,7 +314,7 @@ async def call_sync_async(call, *args, **kwargs):
 
 
 def errors_responses(errors: Sequence[Type[BaseError]] = None):
-    responses = {}
+    responses = {'default': {}}
 
     if errors:
         cnt = 1
@@ -1000,14 +1000,11 @@ class Entrypoint(APIRouter):
 class API(FastAPI):
     def openapi(self):
         result = super().openapi()
-        try:
-            result['components']['schemas'].pop('ValidationError', None)
-            result['components']['schemas'].pop('HTTPValidationError', None)
-            list(result['paths'][k][k1]['responses'].pop('422', None)
-                 for k in result['paths'].keys() for k1 in result['paths'][k].keys())
-        except KeyError:
-            # Empty API (no components, no paths)
-            pass
+        for route in self.routes:
+            if isinstance(route, (EntrypointRoute, MethodRoute, )):
+                route: Union[EntrypointRoute, MethodRoute]
+                for media_type in result['paths'][route.path]:
+                    result['paths'][route.path][media_type]['responses'].pop('default', None)
         return result
 
     def bind_entrypoint(self, ep: Entrypoint):

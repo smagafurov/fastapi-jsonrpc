@@ -14,7 +14,7 @@ python = "^3.6"
 aiojobs = "^0.2.2"
 pydantic = "^0.30"
 starlette = "^0.12.7"
-fastapi = "^0.36.0"
+fastapi = "^0.37.0"
 
 [tool.poetry.dev-dependencies]
 uvicorn = "^0.8.6"
