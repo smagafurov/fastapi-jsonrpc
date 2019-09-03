@@ -8,17 +8,19 @@ readme = "README.rst"
 repository = "https://github.com/smagafurov/fastapi-jsonrpc"
 homepage = "https://github.com/smagafurov/fastapi-jsonrpc"
 keywords = ['json-rpc', 'asgi', 'swagger', 'openapi', 'fastapi', 'pydantic', 'starlette']
+exclude = ["example1.py", "example2.py"]
 
 [tool.poetry.dependencies]
 python = "^3.6"
 aiojobs = "^0.2.2"
-pydantic = "^0.30"
+pydantic = "^0.32.2"
 starlette = "^0.12.7"
-fastapi = "^0.37.0"
+fastapi = "^0.38.1"
 
 [tool.poetry.dev-dependencies]
 uvicorn = "^0.8.6"
 pygments = "^2.4"
+rst_include = "^1.0"
 
 [tool.dephell.main]
 from = {format = "poetry", path = "pyproject.toml"}
