@@ -3,10 +3,11 @@ import inspect
 import logging
 from json import JSONDecodeError
 from types import FunctionType, CoroutineType
-from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable
+from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable, Tuple, Set, Mapping
 
 from pydantic import StrictStr, ValidationError, DictError, Schema
 from pydantic import BaseModel
+from pydantic.fields import Field, Shape
 from pydantic.main import MetaModel
 from fastapi.dependencies.models import Dependant
 from fastapi.encoders import jsonable_encoder
@@ -413,6 +414,25 @@ def insert_dependencies(target: Dependant, dependencies: Sequence[Depends] = Non
         )
 
 
+def get_field_type(field: Field):
+    if field.shape == Shape.TUPLE_ELLIPS:
+        return Tuple[field.type_]
+
+    if field.shape == Shape.LIST:
+        return List[field.type_]
+
+    if field.shape == Shape.SET:
+        return Set[field.type_]
+
+    if field.shape == Shape.SEQUENCE:
+        return Sequence[field.type_]
+
+    if field.shape == Shape.MAPPING:
+        return Mapping[get_field_type(field.key_field), field.type_]
+
+    return field.type_
+
+
 def make_request_model(name, module, body_params):
     whole_params_list = [p for p in body_params if isinstance(p.schema, Params)]
     if len(whole_params_list):
@@ -429,11 +449,11 @@ def make_request_model(name, module, body_params):
             )
 
     if whole_params_list:
-        _JsonRpcRequestParams = whole_params_list[0].type_
+        _JsonRpcRequestParams = get_field_type(whole_params_list[0])
         params_schema = whole_params_list[0].schema
     else:
         ns = {field.name: field.schema for field in body_params}
-        ns['__annotations__'] = {field.name: field.type_ for field in body_params}
+        ns['__annotations__'] = {field.name: get_field_type(field) for field in body_params}
 
         _JsonRpcRequestParams = MetaModel.__new__(MetaModel, '_JsonRpcRequestParams', (BaseModel, ), ns)
         _JsonRpcRequestParams = component_name(f'_Params[{name}]', module)(_JsonRpcRequestParams)
@@ -685,7 +705,7 @@ class EntrypointRoute(APIRoute):
         flat_dependant = get_flat_dependant(self.dependant, skip_repeats=True)
 
         if len(flat_dependant.body_params) > 1:
-            body_params = [p for p in flat_dependant.body_params if p.type_ is not _Request]
+            body_params = [p for p in flat_dependant.body_params if get_field_type(p) is not _Request]
             raise RuntimeError(
                 f"Entrypoint shared dependencies can't use 'Body' parameters: "
                 f"params={body_params}"
