@@ -83,8 +83,62 @@ example2.py
 
 .. code-block:: python
 
+    from pydantic import BaseModel
     import fastapi_jsonrpc as jsonrpc
     from fastapi import Body, Header, Depends
+
+
+    # database models
+
+    class User:
+        def __init__(self, name):
+            self.name = name
+
+        def __eq__(self, other):
+            if not isinstance(other, User):
+                return False
+            return self.name == other.name
+
+
+    class Account:
+        def __init__(self, account_id, owner, amount, currency):
+            self.account_id = account_id
+            self.owner = owner
+            self.amount = amount
+            self.currency = currency
+
+        def owned_by(self, user: User):
+            return self.owner == user
+
+
+    # fake database
+
+    users = {
+        '1': User('user1'),
+        '2': User('user2'),
+    }
+
+    accounts = {
+        '1.1': Account('1.1', users['1'], 100, 'USD'),
+        '1.2': Account('1.2', users['1'], 200, 'EUR'),
+        '2.1': Account('2.1', users['2'], 300, 'USD'),
+    }
+
+
+    def get_user_by_token(auth_token) -> User:
+        return users[auth_token]
+
+
+    def get_account_by_id(account_id) -> Account:
+        return accounts[account_id]
+
+
+    # schemas
+
+    class Balance(BaseModel):
+        """Account balance"""
+        amount: int = Body(..., example=100)
+        currency: str = Body(..., example='USD')
 
 
     # errors
@@ -103,51 +157,8 @@ example2.py
         CODE = 6001
         MESSAGE = 'Not enough money'
 
-
-    # database models
-
-    class User:
-        def __init__(self, name):
-            self.name = name
-
-
-    class Account:
-        def __init__(self, account_id, owner_name, balance, currency):
-            self.account_id = account_id
-            self.owner_name = owner_name
-            self.balance = balance
-            self.currency = currency
-
-        def owned_by(self, user: User):
-            return self.owner_name == user.name
-
-
-    # fake database
-
-    users = {
-        '1': User('user1'),
-        '2': User('user2'),
-    }
-
-    accounts = {
-        '1.1': Account('1.1', 'user1', 100, 'USD'),
-        '1.2': Account('1.2', 'user1', 200, 'EUR'),
-        '2.1': Account('2.1', 'user2', 300, 'USD'),
-    }
-
-
-    def get_user_by_token(auth_token) -> User:
-        try:
-            return users[auth_token]
-        except KeyError:
-            raise AuthError()
-
-
-    def get_account_by_id(account_id) -> Account:
-        try:
-            return accounts[account_id]
-        except KeyError:
-            raise AccountNotFound()
+        class DataModel(BaseModel):
+            balance: Balance
 
 
     # dependencies
@@ -155,21 +166,32 @@ example2.py
     def get_auth_user(
         # this will become the header-parameter of json-rpc method that uses this dependency
         auth_token: str = Header(
-            ...,
+            None,
             alias='user-auth-token',
         ),
     ) -> User:
-        return get_user_by_token(auth_token)
+        if not auth_token:
+            raise AuthError
+
+        try:
+            return get_user_by_token(auth_token)
+        except KeyError:
+            raise AuthError
 
 
     def get_account(
         # this will become the parameter of the json-rpc method that uses this dependency
-        account_id: str,
+        account_id: str = Body(..., example='1.1'),
         user: User = Depends(get_auth_user),
     ) -> Account:
-        account = get_account_by_id(account_id)
+        try:
+            account = get_account_by_id(account_id)
+        except KeyError:
+            raise AccountNotFound
+
         if not account.owned_by(user):
-            raise AccountNotFound()
+            raise AccountNotFound
+
         return account
 
 
@@ -197,19 +219,22 @@ example2.py
     @api_v1.method()
     def get_balance(
         account: Account = Depends(get_account),
-    ) -> str:
-        return f'{account.balance} {account.currency}'
+    ) -> Balance:
+        return Balance(
+            amount=account.amount,
+            currency=account.currency,
+        )
 
 
     # this json-rpc method has two json-rpc-parameters 'account_id', 'amount' and one header parameter 'user-auth-token'
     @api_v1.method(errors=[NotEnoughMoney])
     def withdraw(
         account: Account = Depends(get_account),
-        amount: int = Body(..., gt=0),
-    ) -> str:
-        if account.balance - amount < 0:
-            raise NotEnoughMoney
-        account.balance -= amount
+        amount: int = Body(..., gt=0, example=10),
+    ) -> Balance:
+        if account.amount - amount < 0:
+            raise NotEnoughMoney(data={'balance': get_balance(account)})
+        account.amount -= amount
         return get_balance(account)
 
 
