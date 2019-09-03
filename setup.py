@@ -24,7 +24,7 @@ if os.path.exists(readme_path):
 setup(
     long_description=readme,
     name='fastapi-jsonrpc',
-    version='0.1.22',
+    version='0.1.23',
     description='JSON-RPC server based on fastapi',
     python_requires='==3.*,>=3.6.0',
     project_urls={'homepage': 'https://github.com/smagafurov/fastapi-jsonrpc', 'repository': 'https://github.com/smagafurov/fastapi-jsonrpc'},
@@ -34,6 +34,6 @@ setup(
     keywords='json-rpc asgi swagger openapi fastapi pydantic starlette',
     packages=['fastapi_jsonrpc'],
     package_data={},
-    install_requires=['aiojobs==0.*,>=0.2.2', 'fastapi==0.*,>=0.36.0', 'pydantic==0.*,>=0.30.0', 'starlette==0.*,>=0.12.7'],
+    install_requires=['aiojobs==0.*,>=0.2.2', 'fastapi==0.*,>=0.37.0', 'pydantic==0.*,>=0.30.0', 'starlette==0.*,>=0.12.7'],
     extras_require={'dev': ['pygments==2.*,>=2.4.0', 'uvicorn==0.*,>=0.8.6']},
 )
