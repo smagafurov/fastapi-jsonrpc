@@ -20,7 +20,7 @@ from fastapi.routing import APIRoute, APIRouter, serialize_response
 from starlette.background import BackgroundTasks
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import Response, JSONResponse
 from starlette.routing import Match, request_response, compile_path
 import fastapi.params
 import aiojobs
@@ -484,6 +484,7 @@ class MethodRoute(APIRoute):
         name: str = None,
         errors: Sequence[Type[BaseError]] = None,
         dependencies: Sequence[Depends] = None,
+        response_class: Type[Response] = JSONResponse,
         **kwargs,
     ):
         name = name or func.__name__
@@ -521,8 +522,9 @@ class MethodRoute(APIRoute):
             endpoint,
             methods=['POST'],
             name=name,
+            response_class=response_class,
             response_model=_Response,
-            response_model_skip_defaults=True,
+            response_model_exclude_unset=True,
             responses=responses,
             **kwargs,
         )
@@ -654,7 +656,7 @@ class MethodRoute(APIRoute):
             include=self.response_model_include,
             exclude=self.response_model_exclude,
             by_alias=self.response_model_by_alias,
-            skip_defaults=self.response_model_skip_defaults,
+            exclude_unset=self.response_model_exclude_unset,
         )
 
         return resp
@@ -669,6 +671,7 @@ class EntrypointRoute(APIRoute):
         name: str = None,
         errors: Sequence[Type[BaseError]] = None,
         common_dependencies: Sequence[Depends] = None,
+        response_class: Type[Response] = JSONResponse,
         **kwargs,
     ):
         name = name or 'entrypoint'
@@ -697,6 +700,7 @@ class EntrypointRoute(APIRoute):
             endpoint,
             methods=['POST'],
             name=name,
+            response_class=response_class,
             response_model=JsonRpcResponse,
             responses=responses,
             **kwargs,

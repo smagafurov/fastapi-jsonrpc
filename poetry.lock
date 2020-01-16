@@ -97,11 +97,11 @@ description = "FastAPI framework, high performance, easy to learn, fast to code,
 name = "fastapi"
 optional = false
 python-versions = ">=3.6"
-version = "0.38.1"
+version = "0.46.0"
 
 [package.dependencies]
-pydantic = "0.32.2"
-starlette = ">=0.11.1,<=0.12.8"
+pydantic = ">=0.32.2,<2.0.0"
+starlette = "0.12.9"
 
 [[package]]
 category = "dev"
@@ -278,7 +278,7 @@ description = "The little ASGI library that shines."
 name = "starlette"
 optional = false
 python-versions = ">=3.6"
-version = "0.12.8"
+version = "0.12.9"
 
 [[package]]
 category = "dev"
@@ -362,7 +362,7 @@ version = "1.0.0"
 more-itertools = "*"
 
 [metadata]
-content-hash = "d15b18947b8c6c29460526019f2a4fbfe350aa2706d2d60870d1325ca3b0adfb"
+content-hash = "4be8f3167c552600900242341e550e981f3ad4f7f765a70c5121432515d1c57f"
 python-versions = "^3.6"
 
 [metadata.hashes]
@@ -375,7 +375,7 @@ chardet = ["84ab92ed1c4d4f16916e05906b6b75a6c0fb5db821cc65e70cbd64a3e2a5eaae", "
 click = ["2335065e6395b9e67ca716de5f7526736bfa6ceead690adf616d925bdc622b13", "5b94b49521f6456670fdb30cd82a4eca9412788a93fa6dd6df72c94d5a8ff2d7"]
 colorama = ["7d73d2a99753107a36ac6b455ee49046802e59d9d076ef8e47b61499fa29afff", "e96da0d330793e2cb9485e9ddfd918d456036c7149416295932478192f4436a1"]
 dataclasses = ["454a69d788c7fda44efd71e259be79577822f5e3f53f029a22d08004e951dc9f", "6988bd2b895eef432d562370bb707d540f32f7360ab13da45340101bc2307d84"]
-fastapi = ["273d099b7a8dd7cb1de166ea38216528406fbe042fb604d0025c00810e5ea858", "35c85f39f235da652f24eeb9378a90d479ed087fa9ae5798bac9dce2257b6115"]
+fastapi = ["6c9b919f2ed742d2ad78e6dce5ad1be761e67292b838ba114cb525ec784d10a1", "7f8d795be11e21675b6843424b378fe2ec95a14cecba1c53c68471412cca28c7"]
 h11 = ["acca6a44cb52a32ab442b1779adf0875c443c689e9e028f8d831a3769f9c5208", "f2b1ca39bfed357d1f19ac732913d5f9faa54a5062eca7d2ec3a916cfb7ae4c7"]
 httptools = ["e00cbd7ba01ff748e494248183abc6e153f49181169d8a3d41bb49132ca01dfc"]
 idna = ["c357b3f628cf53ae2c4c05627ecc484553142ca23264e593d327bcde5e9c3407", "ea8b7f6188e6fa117537c3df7da9fc686d485087abf6ac197f9c46432f7e4a3c"]
@@ -392,7 +392,7 @@ pyparsing = ["4c830582a84fb022400b85429791bc551f1f4871c33f23e44f353119e92f969f",
 pytest = ["6b571215b5a790f9b41f19f3531c53a45cf6bb8ef2988bc1ff9afb38270b25fa", "e41d489ff43948babd0fad7ad5e49b8735d5d55e26628a58673c39ff61d95de4"]
 rst-include = ["176cd4440ecdc24932545620a45d2ab6312f24682f190563f3eccf8b659dbe01", "d233bbd072f0d13e0f7835a11c1cc43cc34e377faa2fdd573627d1a7de3cb3a7"]
 six = ["236bdbdce46e6e6a3d61a337c0f8b763ca1e8717c03b369e87a7ec7ce1319c0a", "8f3cd2e254d8f793e7f3d6d9df77b92252b52637291d0f0da013c76ea2724b6c"]
-starlette = ["f600bf9d0beeeeebcb143e6d0c4f8858c2b05067d5a4feb446ba7400ba5e5dc5"]
+starlette = ["c2ac9a42e0e0328ad20fe444115ac5e3760c1ee2ac1ff8cdb5ec915c4a453411"]
 typing = ["91dfe6f3f706ee8cc32d38edbbf304e9b7583fb37108fef38229617f8b3eba23", "c8cabb5ab8945cd2f54917be357d134db9cc1eb039e59d1606dc1e60cb1d9d36", "f38d83c5a7a7086543a0f649564d661859c5146a85775ab90c0d2f93ffaa9714"]
 typing-extensions = ["091ecc894d5e908ac75209f10d5b4f118fbdb2eb1ede6a63544054bb1edb41f2", "910f4656f54de5993ad9304959ce9bb903f90aadc7c67a0bef07e678014e892d", "cf8b63fedea4d89bab840ecbb93e75578af28f76f66c35889bd7065f5af88575"]
 uvicorn = ["8aa44f9d9c3082ef693950387ea25d376e32944df6d4071dbd8edc3c25a40c74"]
