@@ -21,6 +21,7 @@ fastapi = "^0.38.1"
 uvicorn = "^0.8.6"
 pygments = "^2.4"
 rst_include = "^1.0"
+pytest = "^5.2.2"
 
 [tool.dephell.main]
 from = {format = "poetry", path = "pyproject.toml"}
