@@ -1,18 +1,38 @@
+import pytest
+from pydantic import BaseModel
 from fastapi import Body
 from typing import List
 
+from fastapi_jsonrpc import Params
 
-def test_basic(ep, app, app_client):
+
+class WholeParams(BaseModel):
+    data: List[str] = Body(..., example=['111', '222'])
+    amount: int = Body(..., gt=5, example=10)
+
+
+@pytest.fixture
+def ep(ep):
     @ep.method()
     def probe(
-        data: List[str] = Body(..., example=['111', '222']),
-        amount: int = Body(..., gt=5, example=10),
+        whole_params: WholeParams = Params(...)
     ) -> List[int]:
-        del data, amount
-        return [1, 2, 3]
+        return [int(item) + whole_params.amount for item in whole_params.data]
 
-    app.bind_entrypoint(ep)
+    return ep
 
+
+def test_basic(json_request):
+    resp = json_request({
+        'id': 1,
+        'jsonrpc': '2.0',
+        'method': 'probe',
+        'params': {'data': ['11', '22', '33'], 'amount': 1000},
+    })
+    assert resp == {'id': 1, 'jsonrpc': '2.0', 'result': [1011, 1022, 1033]}
+
+
+def test_openapi(app_client):
     resp = app_client.get('/openapi.json')
     assert resp.json() == {
         'components': {
@@ -101,6 +121,25 @@ def test_basic(ep, app, app_client):
                         },
                     },
                     'title': 'ParseError',
+                    'type': 'object',
+                },
+                'WholeParams': {
+                    'properties': {
+                        'amount': {
+                            'example': 10,
+                            'exclusiveMinimum': 5.0,
+                            'title': 'Amount',
+                            'type': 'integer',
+                        },
+                        'data': {
+                            'example': ['111', '222'],
+                            'items': {'type': 'string'},
+                            'title': 'Data',
+                            'type': 'array',
+                        },
+                    },
+                    'required': ['data', 'amount'],
+                    'title': 'WholeParams',
                     'type': 'object',
                 },
                 '_Error': {
@@ -282,27 +321,6 @@ def test_basic(ep, app, app_client):
                     'title': '_ErrorResponse[ParseError]',
                     'type': 'object',
                 },
-                '_Params_probe_': {
-                    'properties': {
-                        'amount': {
-                            'example': 10,
-                            'exclusiveMinimum': 5.0,
-                            'title': 'Amount',
-                            'type': 'integer',
-                        },
-                        'data': {
-                            'example': ['111', '222'],
-                            'items': {
-                                'type': 'string',
-                            },
-                            'title': 'Data',
-                            'type': 'array',
-                        },
-                    },
-                    'required': ['data', 'amount'],
-                    'title': '_Params[probe]',
-                    'type': 'object',
-                },
                 '_Request': {
                     'additionalProperties': False,
                     'properties': {
@@ -362,7 +380,7 @@ def test_basic(ep, app, app_client):
                             'type': 'string',
                         },
                         'params': {
-                            '$ref': '#/components/schemas/_Params_probe_',
+                            '$ref': '#/components/schemas/WholeParams',
                         },
                     },
                     'required': ['params'],

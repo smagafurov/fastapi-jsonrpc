@@ -180,6 +180,7 @@ def test_basic(app_client):
                     'type': 'object',
                 },
                 '_ErrorResponse_InternalError_': {
+                    'additionalProperties': False,
                     'properties': {
                         'error': {
                             '$ref': '#/components/schemas/InternalError',
@@ -207,6 +208,7 @@ def test_basic(app_client):
                     'type': 'object',
                 },
                 '_ErrorResponse_InvalidParams_': {
+                    'additionalProperties': False,
                     'properties': {
                         'error': {
                             '$ref': '#/components/schemas/InvalidParams',
@@ -234,6 +236,7 @@ def test_basic(app_client):
                     'type': 'object',
                 },
                 '_ErrorResponse_InvalidRequest_': {
+                    'additionalProperties': False,
                     'properties': {
                         'error': {
                             '$ref': '#/components/schemas/InvalidRequest',
@@ -261,6 +264,7 @@ def test_basic(app_client):
                     'type': 'object',
                 },
                 '_ErrorResponse_MethodNotFound_': {
+                    'additionalProperties': False,
                     'properties': {
                         'error': {
                             '$ref': '#/components/schemas/MethodNotFound',
@@ -288,6 +292,7 @@ def test_basic(app_client):
                     'type': 'object',
                 },
                 '_ErrorResponse_ParseError_': {
+                    'additionalProperties': False,
                     'properties': {
                         'error': {
                             '$ref': '#/components/schemas/ParseError',
@@ -317,7 +322,7 @@ def test_basic(app_client):
                 '_Params_entrypoint_': {
                     'properties': {
                         'common_dep': {
-                            'title': 'Common_Dep',
+                            'title': 'Common Dep',
                             'type': 'number',
                         }
                     },
@@ -328,11 +333,11 @@ def test_basic(app_client):
                 '_Params_probe2_': {
                     'properties': {
                         'common_dep': {
-                            'title': 'Common_Dep',
+                            'title': 'Common Dep',
                             'type': 'number',
                         },
                         'probe2_dep': {
-                            'title': 'Probe2_Dep',
+                            'title': 'Probe2 Dep',
                             'type': 'integer',
                         },
                     },
@@ -343,7 +348,7 @@ def test_basic(app_client):
                 '_Params_probe_': {
                     'properties': {
                         'common_dep': {
-                            'title': 'Common_Dep',
+                            'title': 'Common Dep',
                             'type': 'number',
                         },
                         'data': {
@@ -360,6 +365,7 @@ def test_basic(app_client):
                     'type': 'object',
                 },
                 '_Request_entrypoint_': {
+                    'additionalProperties': False,
                     'properties': {
                         'id': {
                             'anyOf': [{'type': 'string'}, {'type': 'integer'}],
@@ -383,6 +389,7 @@ def test_basic(app_client):
                     'type': 'object',
                 },
                 '_Request_probe2_': {
+                    'additionalProperties': False,
                     'properties': {
                         'id': {
                             'anyOf': [{'type': 'string'}, {'type': 'integer'}],
@@ -406,6 +413,7 @@ def test_basic(app_client):
                     'type': 'object',
                 },
                 '_Request_probe_': {
+                    'additionalProperties': False,
                     'properties': {
                         'id': {
                             'anyOf': [
@@ -438,6 +446,7 @@ def test_basic(app_client):
                     'type': 'object',
                 },
                 '_Response': {
+                    'additionalProperties': False,
                     'properties': {
                         'id': {
                             'anyOf': [
@@ -466,6 +475,7 @@ def test_basic(app_client):
                     'type': 'object',
                 },
                 '_Response_probe2_': {
+                    'additionalProperties': False,
                     'properties': {
                         'id': {
                             'anyOf': [{'type': 'string'}, {'type': 'integer'}],
@@ -487,6 +497,7 @@ def test_basic(app_client):
                     'type': 'object',
                 },
                 '_Response_probe_': {
+                    'additionalProperties': False,
                     'properties': {
                         'id': {
                             'anyOf': [

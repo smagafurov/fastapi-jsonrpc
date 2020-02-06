@@ -1,8 +1,16 @@
+import platform
 from json import dumps as json_dumps
 
 import pytest
 from starlette.testclient import TestClient
 import fastapi_jsonrpc as jsonrpc
+
+
+# Workaround for osx systems
+# https://stackoverflow.com/questions/58597334/unittest-performance-issue-when-using-requests-mock-on-osx
+if platform.system() == 'Darwin':
+    import socket
+    socket.gethostbyname = lambda x: '127.0.0.1'
 
 
 @pytest.fixture

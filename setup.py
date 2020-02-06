@@ -34,6 +34,6 @@ setup(
     keywords='json-rpc asgi swagger openapi fastapi pydantic starlette',
     packages=['fastapi_jsonrpc'],
     package_data={},
-    install_requires=['aiojobs==0.*,>=0.2.2', 'fastapi==0.*,>=0.46.0', 'pydantic==0.*,>=0.32.2', 'starlette==0.*,>=0.12.9'],
+    install_requires=['aiojobs==0.*,>=0.2.2', 'fastapi==0.*,>=0.46.0', 'pydantic==1.*,>=1.0.0', 'starlette==0.*,>=0.12.9'],
     extras_require={'dev': ['pygments==2.*,>=2.4.0', 'pytest==5.*,>=5.2.2', 'rst-include==1.*,>=1.0.0', 'uvicorn==0.*,>=0.8.6']},
 )

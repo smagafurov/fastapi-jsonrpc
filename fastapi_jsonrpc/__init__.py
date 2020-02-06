@@ -3,12 +3,16 @@ import inspect
 import logging
 from json import JSONDecodeError
 from types import FunctionType, CoroutineType
-from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable, Tuple, Set, Mapping
+from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable
 
-from pydantic import StrictStr, ValidationError, DictError, Schema
-from pydantic import BaseModel
-from pydantic.fields import Field, Shape
-from pydantic.main import MetaModel
+from fastapi.utils import create_cloned_field
+# noinspection PyProtectedMember
+from pydantic import DictError
+from pydantic import StrictStr, ValidationError
+from pydantic import BaseModel, BaseConfig
+from pydantic import fields
+# noinspection PyProtectedMember
+from pydantic.main import ModelMetaclass
 from fastapi.dependencies.models import Dependant
 from fastapi.encoders import jsonable_encoder
 from fastapi.params import Depends
@@ -215,7 +219,7 @@ class BaseError(Exception):
             }
         }
 
-        _ErrorData = MetaModel.__new__(MetaModel, '_ErrorData', (BaseModel, ), ns)
+        _ErrorData = ModelMetaclass.__new__(ModelMetaclass, '_ErrorData', (BaseModel,), ns)
         _ErrorData = component_name(f'_ErrorData[{error_model.__name__}]', error_model.__module__)(_ErrorData)
 
         return _ErrorData
@@ -230,8 +234,8 @@ class BaseError(Exception):
     @classmethod
     def build_resp_model(cls):
         ns = {
-            'code': Schema(cls.CODE, const=True, example=cls.CODE),
-            'message': Schema(cls.MESSAGE, const=True, example=cls.MESSAGE),
+            'code': fields.Field(cls.CODE, const=True, example=cls.CODE),
+            'message': fields.Field(cls.MESSAGE, const=True, example=cls.MESSAGE),
             '__annotations__': {
                 'code': int,
                 'message': str,
@@ -247,13 +251,13 @@ class BaseError(Exception):
 
         name = cls._component_name or cls.__name__
 
-        _JsonRpcErrorModel = MetaModel.__new__(MetaModel, '_JsonRpcErrorModel', (BaseModel, ), ns)
+        _JsonRpcErrorModel = ModelMetaclass.__new__(ModelMetaclass, '_JsonRpcErrorModel', (BaseModel,), ns)
         _JsonRpcErrorModel = component_name(name, cls.__module__)(_JsonRpcErrorModel)
 
         @component_name(f'_ErrorResponse[{name}]', cls.__module__)
         class _ErrorResponseModel(BaseModel):
-            jsonrpc: StrictStr = Schema('2.0', const=True, example='2.0')
-            id: Union[StrictStr, int] = Schema(None, example=0)
+            jsonrpc: StrictStr = fields.Field('2.0', const=True, example='2.0')
+            id: Union[StrictStr, int] = fields.Field(None, example=0)
             error: _JsonRpcErrorModel
 
             class Config:
@@ -331,8 +335,8 @@ def errors_responses(errors: Sequence[Type[BaseError]] = None):
 
 @component_name(f'_Request')
 class JsonRpcRequest(BaseModel):
-    jsonrpc: StrictStr = Schema('2.0', const=True, example='2.0')
-    id: Union[StrictStr, int] = Schema(None, example=0)
+    jsonrpc: StrictStr = fields.Field('2.0', const=True, example='2.0')
+    id: Union[StrictStr, int] = fields.Field(None, example=0)
     method: StrictStr
     params: dict
 
@@ -342,8 +346,8 @@ class JsonRpcRequest(BaseModel):
 
 @component_name(f'_Response')
 class JsonRpcResponse(BaseModel):
-    jsonrpc: StrictStr = Schema('2.0', const=True, example='2.0')
-    id: Union[StrictStr, int] = Schema(None, example=0)
+    jsonrpc: StrictStr = fields.Field('2.0', const=True, example='2.0')
+    id: Union[StrictStr, int] = fields.Field(None, example=0)
     result: dict
 
     class Config:
@@ -373,8 +377,8 @@ def fix_query_dependencies(dependant: Dependant):
     dependant.query_params = []
 
     for field in dependant.body_params:
-        if not isinstance(field.schema, Params):
-            field.schema.embed = True
+        if not isinstance(field.field_info, Params):
+            field.field_info.embed = True
 
     for sub_dependant in dependant.dependencies:
         fix_query_dependencies(sub_dependant)
@@ -414,61 +418,71 @@ def insert_dependencies(target: Dependant, dependencies: Sequence[Depends] = Non
         )
 
 
-def get_field_type(field: Field):
-    if field.shape == Shape.TUPLE_ELLIPS:
-        return Tuple[field.type_]
+def clone_field_with_new_name(field: fields.ModelField, name: str, alias: str = None):
+    # store original name and alias
+    field_name = field.name
+    field_alias = field.alias
 
-    if field.shape == Shape.LIST:
-        return List[field.type_]
+    # rewrite name and alias
+    field.name = name
+    field.alias = alias or name
 
-    if field.shape == Shape.SET:
-        return Set[field.type_]
+    # clone field with name and alias rewritten
+    new_field = create_cloned_field(field)
 
-    if field.shape == Shape.SEQUENCE:
-        return Sequence[field.type_]
+    # restore original name and alias
+    field.name = field_name
+    field.alias = field_alias
 
-    if field.shape == Shape.MAPPING:
-        return Mapping[get_field_type(field.key_field), field.type_]
-
-    return field.type_
+    return new_field
 
 
-def make_request_model(name, module, body_params):
-    whole_params_list = [p for p in body_params if isinstance(p.schema, Params)]
+def make_request_model(name, module, body_params: List[fields.ModelField]):
+    whole_params_list = [p for p in body_params if isinstance(p.field_info, Params)]
     if len(whole_params_list):
         if len(whole_params_list) > 1:
             raise RuntimeError(
-                f"Only one 'Params' schema allowed: "
+                f"Only one 'Params' allowed: "
                 f"params={whole_params_list}"
             )
-        body_params_list = [p for p in body_params if not isinstance(p.schema, Params)]
+        body_params_list = [p for p in body_params if not isinstance(p.field_info, Params)]
         if body_params_list:
             raise RuntimeError(
-                f"No other params allowed when 'Params' schema used: "
+                f"No other params allowed when 'Params' used: "
                 f"params={whole_params_list}, other={body_params_list}"
             )
 
     if whole_params_list:
-        _JsonRpcRequestParams = get_field_type(whole_params_list[0])
-        params_schema = whole_params_list[0].schema
+        params_field = clone_field_with_new_name(whole_params_list[0], 'params')
     else:
-        ns = {field.name: field.schema for field in body_params}
-        ns['__annotations__'] = {field.name: get_field_type(field) for field in body_params}
+        _JsonRpcRequestParams = ModelMetaclass.__new__(ModelMetaclass, '_JsonRpcRequestParams', (BaseModel,), {})
 
-        _JsonRpcRequestParams = MetaModel.__new__(MetaModel, '_JsonRpcRequestParams', (BaseModel, ), ns)
+        for f in body_params:
+            _JsonRpcRequestParams.__fields__[f.name] = f
+
         _JsonRpcRequestParams = component_name(f'_Params[{name}]', module)(_JsonRpcRequestParams)
 
-        params_schema = Schema(...)
+        params_field = fields.ModelField(
+            name='params',
+            type_=_JsonRpcRequestParams,
+            class_validators={},
+            default=None,
+            required=True,
+            model_config=BaseConfig,
+            field_info=fields.Field(...),
+        )
 
-    @component_name(f'_Request[{name}]', module)
     class _Request(BaseModel):
-        jsonrpc: StrictStr = Schema('2.0', const=True, example='2.0')
-        id: Union[StrictStr, int] = Schema(None, example=0)
-        method: StrictStr = Schema(name, const=True, example=name)
-        params: _JsonRpcRequestParams = params_schema
+        jsonrpc: StrictStr = fields.Field('2.0', const=True, example='2.0')
+        id: Union[StrictStr, int] = fields.Field(None, example=0)
+        method: StrictStr = fields.Field(name, const=True, example=name)
 
         class Config:
             extra = 'forbid'
+
+    _Request.__fields__[params_field.name] = params_field
+
+    _Request = component_name(f'_Request[{name}]', module)(_Request)
 
     return _Request
 
@@ -501,8 +515,8 @@ class MethodRoute(APIRoute):
 
         @component_name(f'_Response[{name}]', func.__module__)
         class _Response(BaseModel):
-            jsonrpc: StrictStr = Schema('2.0', const=True, example='2.0')
-            id: Union[StrictStr, int] = Schema(None, example=0)
+            jsonrpc: StrictStr = fields.Field('2.0', const=True, example='2.0')
+            id: Union[StrictStr, int] = fields.Field(None, example=0)
             result: result_model
 
             class Config:
@@ -709,7 +723,7 @@ class EntrypointRoute(APIRoute):
         flat_dependant = get_flat_dependant(self.dependant, skip_repeats=True)
 
         if len(flat_dependant.body_params) > 1:
-            body_params = [p for p in flat_dependant.body_params if get_field_type(p) is not _Request]
+            body_params = [p for p in flat_dependant.body_params if p.type_ is not _Request]
             raise RuntimeError(
                 f"Entrypoint shared dependencies can't use 'Body' parameters: "
                 f"params={body_params}"
