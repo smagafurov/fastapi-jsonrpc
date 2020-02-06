@@ -1,14 +1,13 @@
 import pytest
-from pydantic import BaseModel
-from fastapi import Body
+from pydantic import BaseModel, Field
 from typing import List
 
 from fastapi_jsonrpc import Params
 
 
 class WholeParams(BaseModel):
-    data: List[str] = Body(..., example=['111', '222'])
-    amount: int = Body(..., gt=5, example=10)
+    data: List[str] = Field(..., example=['111', '222'])
+    amount: int = Field(..., gt=5, example=10)
 
 
 @pytest.fixture

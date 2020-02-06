@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import fastapi_jsonrpc as jsonrpc
 from fastapi import Body, Header, Depends
 
@@ -52,8 +52,8 @@ def get_account_by_id(account_id) -> Account:
 
 class Balance(BaseModel):
     """Account balance"""
-    amount: int = Body(..., example=100)
-    currency: str = Body(..., example='USD')
+    amount: int = Field(..., example=100)
+    currency: str = Field(..., example='USD')
 
 
 # errors

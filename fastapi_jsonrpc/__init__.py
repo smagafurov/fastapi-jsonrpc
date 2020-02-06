@@ -10,7 +10,7 @@ from fastapi.utils import create_cloned_field
 from pydantic import DictError
 from pydantic import StrictStr, ValidationError
 from pydantic import BaseModel, BaseConfig
-from pydantic import fields
+from pydantic.fields import ModelField, Field
 # noinspection PyProtectedMember
 from pydantic.main import ModelMetaclass
 from fastapi.dependencies.models import Dependant
@@ -234,8 +234,8 @@ class BaseError(Exception):
     @classmethod
     def build_resp_model(cls):
         ns = {
-            'code': fields.Field(cls.CODE, const=True, example=cls.CODE),
-            'message': fields.Field(cls.MESSAGE, const=True, example=cls.MESSAGE),
+            'code': Field(cls.CODE, const=True, example=cls.CODE),
+            'message': Field(cls.MESSAGE, const=True, example=cls.MESSAGE),
             '__annotations__': {
                 'code': int,
                 'message': str,
@@ -256,8 +256,8 @@ class BaseError(Exception):
 
         @component_name(f'_ErrorResponse[{name}]', cls.__module__)
         class _ErrorResponseModel(BaseModel):
-            jsonrpc: StrictStr = fields.Field('2.0', const=True, example='2.0')
-            id: Union[StrictStr, int] = fields.Field(None, example=0)
+            jsonrpc: StrictStr = Field('2.0', const=True, example='2.0')
+            id: Union[StrictStr, int] = Field(None, example=0)
             error: _JsonRpcErrorModel
 
             class Config:
@@ -335,8 +335,8 @@ def errors_responses(errors: Sequence[Type[BaseError]] = None):
 
 @component_name(f'_Request')
 class JsonRpcRequest(BaseModel):
-    jsonrpc: StrictStr = fields.Field('2.0', const=True, example='2.0')
-    id: Union[StrictStr, int] = fields.Field(None, example=0)
+    jsonrpc: StrictStr = Field('2.0', const=True, example='2.0')
+    id: Union[StrictStr, int] = Field(None, example=0)
     method: StrictStr
     params: dict
 
@@ -346,8 +346,8 @@ class JsonRpcRequest(BaseModel):
 
 @component_name(f'_Response')
 class JsonRpcResponse(BaseModel):
-    jsonrpc: StrictStr = fields.Field('2.0', const=True, example='2.0')
-    id: Union[StrictStr, int] = fields.Field(None, example=0)
+    jsonrpc: StrictStr = Field('2.0', const=True, example='2.0')
+    id: Union[StrictStr, int] = Field(None, example=0)
     result: dict
 
     class Config:
@@ -418,7 +418,7 @@ def insert_dependencies(target: Dependant, dependencies: Sequence[Depends] = Non
         )
 
 
-def clone_field_with_new_name(field: fields.ModelField, name: str, alias: str = None):
+def clone_field_with_new_name(field: ModelField, name: str, alias: str = None):
     # store original name and alias
     field_name = field.name
     field_alias = field.alias
@@ -437,7 +437,7 @@ def clone_field_with_new_name(field: fields.ModelField, name: str, alias: str = 
     return new_field
 
 
-def make_request_model(name, module, body_params: List[fields.ModelField]):
+def make_request_model(name, module, body_params: List[ModelField]):
     whole_params_list = [p for p in body_params if isinstance(p.field_info, Params)]
     if len(whole_params_list):
         if len(whole_params_list) > 1:
@@ -462,20 +462,20 @@ def make_request_model(name, module, body_params: List[fields.ModelField]):
 
         _JsonRpcRequestParams = component_name(f'_Params[{name}]', module)(_JsonRpcRequestParams)
 
-        params_field = fields.ModelField(
+        params_field = ModelField(
             name='params',
             type_=_JsonRpcRequestParams,
             class_validators={},
             default=None,
             required=True,
             model_config=BaseConfig,
-            field_info=fields.Field(...),
+            field_info=Field(...),
         )
 
     class _Request(BaseModel):
-        jsonrpc: StrictStr = fields.Field('2.0', const=True, example='2.0')
-        id: Union[StrictStr, int] = fields.Field(None, example=0)
-        method: StrictStr = fields.Field(name, const=True, example=name)
+        jsonrpc: StrictStr = Field('2.0', const=True, example='2.0')
+        id: Union[StrictStr, int] = Field(None, example=0)
+        method: StrictStr = Field(name, const=True, example=name)
 
         class Config:
             extra = 'forbid'
@@ -515,8 +515,8 @@ class MethodRoute(APIRoute):
 
         @component_name(f'_Response[{name}]', func.__module__)
         class _Response(BaseModel):
-            jsonrpc: StrictStr = fields.Field('2.0', const=True, example='2.0')
-            id: Union[StrictStr, int] = fields.Field(None, example=0)
+            jsonrpc: StrictStr = Field('2.0', const=True, example='2.0')
+            id: Union[StrictStr, int] = Field(None, example=0)
             result: result_model
 
             class Config:
