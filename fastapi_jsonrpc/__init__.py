@@ -458,7 +458,7 @@ def make_request_model(name, module, body_params: List[ModelField]):
         _JsonRpcRequestParams = ModelMetaclass.__new__(ModelMetaclass, '_JsonRpcRequestParams', (BaseModel,), {})
 
         for f in body_params:
-            _JsonRpcRequestParams.__fields__[f.name] = f
+            _JsonRpcRequestParams.__fields__[f.name] = create_cloned_field(f)
 
         _JsonRpcRequestParams = component_name(f'_Params[{name}]', module)(_JsonRpcRequestParams)
 
