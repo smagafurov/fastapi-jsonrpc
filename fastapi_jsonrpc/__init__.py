@@ -5,7 +5,6 @@ from json import JSONDecodeError
 from types import FunctionType, CoroutineType
 from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable
 
-from fastapi.utils import create_cloned_field
 # noinspection PyProtectedMember
 from pydantic import DictError
 from pydantic import StrictStr, ValidationError
@@ -39,7 +38,6 @@ class Params(fastapi.params.Body):
         default: Any,
         *,
         media_type: str = 'application/json',
-        alias: str = None,
         title: str = None,
         description: str = None,
         gt: float = None,
@@ -55,7 +53,7 @@ class Params(fastapi.params.Body):
             default,
             embed=False,
             media_type=media_type,
-            alias=alias,
+            alias='params',
             title=title,
             description=description,
             gt=gt,
@@ -418,25 +416,6 @@ def insert_dependencies(target: Dependant, dependencies: Sequence[Depends] = Non
         )
 
 
-def clone_field_with_new_name(field: ModelField, name: str, alias: str = None):
-    # store original name and alias
-    field_name = field.name
-    field_alias = field.alias
-
-    # rewrite name and alias
-    field.name = name
-    field.alias = alias or name
-
-    # clone field with name and alias rewritten
-    new_field = create_cloned_field(field)
-
-    # restore original name and alias
-    field.name = field_name
-    field.alias = field_alias
-
-    return new_field
-
-
 def make_request_model(name, module, body_params: List[ModelField]):
     whole_params_list = [p for p in body_params if isinstance(p.field_info, Params)]
     if len(whole_params_list):
@@ -453,12 +432,13 @@ def make_request_model(name, module, body_params: List[ModelField]):
             )
 
     if whole_params_list:
-        params_field = clone_field_with_new_name(whole_params_list[0], 'params')
+        assert whole_params_list[0].alias == 'params'
+        params_field = whole_params_list[0]
     else:
         _JsonRpcRequestParams = ModelMetaclass.__new__(ModelMetaclass, '_JsonRpcRequestParams', (BaseModel,), {})
 
         for f in body_params:
-            _JsonRpcRequestParams.__fields__[f.name] = create_cloned_field(f)
+            _JsonRpcRequestParams.__fields__[f.name] = f
 
         _JsonRpcRequestParams = component_name(f'_Params[{name}]', module)(_JsonRpcRequestParams)
 
