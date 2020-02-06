@@ -450,7 +450,7 @@ def test_openapi(app_client):
             },
         },
         'info': {
-            'title': 'Fast API', 'version': '0.1.0',
+            'title': 'FastAPI', 'version': '0.1.0',
         },
         'openapi': '3.0.2',
         'paths': {

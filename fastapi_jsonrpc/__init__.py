@@ -664,7 +664,7 @@ class MethodRoute(APIRoute):
         }
 
         # noinspection PyTypeChecker
-        resp = serialize_response(
+        resp = await serialize_response(
             field=self.secure_cloned_response_field,
             response=response,
             include=self.response_model_include,

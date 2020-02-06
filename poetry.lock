@@ -97,7 +97,7 @@ description = "FastAPI framework, high performance, easy to learn, fast to code,
 name = "fastapi"
 optional = false
 python-versions = ">=3.6"
-version = "0.46.0"
+version = "0.48.0"
 
 [package.dependencies]
 pydantic = ">=0.32.2,<2.0.0"
@@ -359,7 +359,7 @@ python-versions = ">=3.6"
 version = "2.1.0"
 
 [metadata]
-content-hash = "8d39c04de317d31b264b17fc8abd1ce985225c514b21e45681393aac1a7e702c"
+content-hash = "f6867b54719e3240e29717874aedc98b67b609ac089e2975054d642fb09fc44f"
 python-versions = "^3.6"
 
 [metadata.hashes]
@@ -372,7 +372,7 @@ chardet = ["84ab92ed1c4d4f16916e05906b6b75a6c0fb5db821cc65e70cbd64a3e2a5eaae", "
 click = ["2335065e6395b9e67ca716de5f7526736bfa6ceead690adf616d925bdc622b13", "5b94b49521f6456670fdb30cd82a4eca9412788a93fa6dd6df72c94d5a8ff2d7"]
 colorama = ["7d73d2a99753107a36ac6b455ee49046802e59d9d076ef8e47b61499fa29afff", "e96da0d330793e2cb9485e9ddfd918d456036c7149416295932478192f4436a1"]
 dataclasses = ["454a69d788c7fda44efd71e259be79577822f5e3f53f029a22d08004e951dc9f", "6988bd2b895eef432d562370bb707d540f32f7360ab13da45340101bc2307d84"]
-fastapi = ["6c9b919f2ed742d2ad78e6dce5ad1be761e67292b838ba114cb525ec784d10a1", "7f8d795be11e21675b6843424b378fe2ec95a14cecba1c53c68471412cca28c7"]
+fastapi = ["2e00347f6a84291a5f04302733fbcf7c2ad9c674c0d0448cbee661db0e01ca16", "87d409d3ac3957713c016ba3b28fa5214e0903d4351cc3fe486b170d29e8aacd"]
 h11 = ["acca6a44cb52a32ab442b1779adf0875c443c689e9e028f8d831a3769f9c5208", "f2b1ca39bfed357d1f19ac732913d5f9faa54a5062eca7d2ec3a916cfb7ae4c7"]
 httptools = ["e00cbd7ba01ff748e494248183abc6e153f49181169d8a3d41bb49132ca01dfc"]
 idna = ["c357b3f628cf53ae2c4c05627ecc484553142ca23264e593d327bcde5e9c3407", "ea8b7f6188e6fa117537c3df7da9fc686d485087abf6ac197f9c46432f7e4a3c"]
