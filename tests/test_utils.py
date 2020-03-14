@@ -15,6 +15,7 @@ def test_clone_dependant():
         security_scopes=["sss", ],
         use_cache=False,
         path="some path",
+        body_params=["some path"],
     )
 
     cloned_dependant = clone_dependant(original_dependant)
@@ -23,7 +24,15 @@ def test_clone_dependant():
 
     # all fields from original represented in cloned
     assert list(original_dependant.__dict__.keys()) == list(cloned_dependant.__dict__.keys())
-    assert list(original_dependant.__dict__.values()) == list(cloned_dependant.__dict__.values())
+
+    for key in original_dependant.__dict__.keys():
+        if key == "dependencies":  # not checking copied array of classes (cause it's new generated)
+            continue
+
+        assert original_dependant.__dict__.get(key) == cloned_dependant.__dict__.get(key)
 
     original_dependant.name = "not some name"
     assert cloned_dependant.name == "some name"
+
+    original_dependant.body_params.append("some value that should be in copied")
+    assert cloned_dependant.body_params == ["some path"]
