@@ -106,17 +106,17 @@ description = "FastAPI framework, high performance, easy to learn, fast to code,
 name = "fastapi"
 optional = false
 python-versions = ">=3.6"
-version = "0.48.0"
+version = "0.54.2"
 
 [package.dependencies]
 pydantic = ">=0.32.2,<2.0.0"
-starlette = "0.12.9"
+starlette = "0.13.2"
 
 [package.extras]
-all = ["requests", "aiofiles", "jinja2", "python-multipart", "itsdangerous", "pyyaml", "graphene", "ujson", "email-validator", "uvicorn", "async-exit-stack", "async-generator"]
+all = ["requests", "aiofiles", "jinja2", "python-multipart", "itsdangerous", "pyyaml", "graphene", "ujson", "orjson", "email-validator", "uvicorn", "async-exit-stack", "async-generator"]
 dev = ["pyjwt", "passlib", "autoflake", "flake8", "uvicorn", "graphene"]
-doc = ["mkdocs", "mkdocs-material", "markdown-include"]
-test = ["pytest (>=4.0.0)", "pytest-cov", "mypy", "black", "isort", "requests", "email-validator", "sqlalchemy", "peewee", "databases", "orjson", "async-exit-stack", "async-generator"]
+doc = ["mkdocs", "mkdocs-material", "markdown-include", "typer", "typer-cli", "pyyaml"]
+test = ["pytest (>=4.0.0)", "pytest-cov", "mypy", "black", "isort", "requests", "email-validator", "sqlalchemy", "peewee", "databases", "orjson", "async-exit-stack", "async-generator", "python-multipart", "aiofiles", "flask"]
 
 [[package]]
 category = "dev"
@@ -309,7 +309,7 @@ description = "The little ASGI library that shines."
 name = "starlette"
 optional = false
 python-versions = ">=3.6"
-version = "0.12.9"
+version = "0.13.2"
 
 [package.extras]
 full = ["aiofiles", "graphene", "itsdangerous", "jinja2", "python-multipart", "pyyaml", "requests", "ujson"]
@@ -397,7 +397,7 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["jaraco.itertools", "func-timeout"]
 
 [metadata]
-content-hash = "f6867b54719e3240e29717874aedc98b67b609ac089e2975054d642fb09fc44f"
+content-hash = "6ecb56bbaeec02552c29e7a8c1de9bd58dcd93a76a9ce7ce66116d0de94bd1ea"
 python-versions = "^3.6"
 
 [metadata.files]
@@ -448,8 +448,8 @@ dataclasses = [
     {file = "dataclasses-0.6.tar.gz", hash = "sha256:6988bd2b895eef432d562370bb707d540f32f7360ab13da45340101bc2307d84"},
 ]
 fastapi = [
-    {file = "fastapi-0.48.0-py3-none-any.whl", hash = "sha256:87d409d3ac3957713c016ba3b28fa5214e0903d4351cc3fe486b170d29e8aacd"},
-    {file = "fastapi-0.48.0.tar.gz", hash = "sha256:2e00347f6a84291a5f04302733fbcf7c2ad9c674c0d0448cbee661db0e01ca16"},
+    {file = "fastapi-0.54.2-py3-none-any.whl", hash = "sha256:c8651f8316956240c2ffe5bc05c334c8359a3887e642720a9b23319c51e82907"},
+    {file = "fastapi-0.54.2.tar.gz", hash = "sha256:fff1b4a7fdf4812abb4507fb7aa30ef4206a0435839626ebe3b2871ec9aa367f"},
 ]
 h11 = [
     {file = "h11-0.8.1-py2.py3-none-any.whl", hash = "sha256:f2b1ca39bfed357d1f19ac732913d5f9faa54a5062eca7d2ec3a916cfb7ae4c7"},
@@ -544,7 +544,8 @@ six = [
     {file = "six-1.14.0.tar.gz", hash = "sha256:236bdbdce46e6e6a3d61a337c0f8b763ca1e8717c03b369e87a7ec7ce1319c0a"},
 ]
 starlette = [
-    {file = "starlette-0.12.9.tar.gz", hash = "sha256:c2ac9a42e0e0328ad20fe444115ac5e3760c1ee2ac1ff8cdb5ec915c4a453411"},
+    {file = "starlette-0.13.2-py3-none-any.whl", hash = "sha256:6169ee78ded501095d1dda7b141a1dc9f9934d37ad23196e180150ace2c6449b"},
+    {file = "starlette-0.13.2.tar.gz", hash = "sha256:a9bb130fa7aa736eda8a814b6ceb85ccf7a209ed53843d0d61e246b380afa10f"},
 ]
 typing = [
     {file = "typing-3.7.4.1-py2-none-any.whl", hash = "sha256:c8cabb5ab8945cd2f54917be357d134db9cc1eb039e59d1606dc1e60cb1d9d36"},
