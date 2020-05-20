@@ -13,9 +13,9 @@ exclude = ["example1.py", "example2.py"]
 [tool.poetry.dependencies]
 python = "^3.6"
 aiojobs = "^0.2.2"
-pydantic = "^1.0.0"
-starlette = "^0.12.9"
-fastapi = "^0.48.0"
+pydantic = "^1.5.1"
+starlette = "^0.13.2"
+fastapi = "^0.54.2"
 
 [tool.poetry.dev-dependencies]
 uvicorn = "^0.8.6"
