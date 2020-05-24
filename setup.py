@@ -35,6 +35,6 @@ setup(
     packages=['fastapi_jsonrpc'],
     package_dir={"": "."},
     package_data={},
-    install_requires=['aiojobs==0.*,>=0.2.2', 'fastapi==0.*,>=0.54.2', 'pydantic==1.*,>=1.5.1', 'starlette==0.*,>=0.13.2'],
+    install_requires=['aiojobs==0.*,>=0.2.2', 'fastapi==0.*,>=0.55.1', 'pydantic==1.*,>=1.5.1', 'starlette==0.*,>=0.13.2'],
     extras_require={"dev": ["pygments==2.*,>=2.4.0", "pytest==5.*,>=5.2.2", "rst-include==1.*,>=1.0.0", "uvicorn==0.*,>=0.8.6"]},
 )
