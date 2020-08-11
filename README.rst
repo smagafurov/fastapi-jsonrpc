@@ -292,7 +292,7 @@ Development
 
     .. code-block:: bash
 
-        poetry version
+        poetry version patch
         dephell deps convert
 
 * Publish to pypi
