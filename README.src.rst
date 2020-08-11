@@ -79,7 +79,7 @@ Development
 
     .. code-block:: bash
 
-        rst_include include -s README.src.rst -t README.rst -q
+        rst_include include -q README.src.rst README.rst
 
 * Change dependencies
 

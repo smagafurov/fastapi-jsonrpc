@@ -83,7 +83,7 @@ example2.py
 
 .. code-block:: python
 
-    from pydantic import BaseModel
+    from pydantic import BaseModel, Field
     import fastapi_jsonrpc as jsonrpc
     from fastapi import Body, Header, Depends
 
@@ -137,8 +137,8 @@ example2.py
 
     class Balance(BaseModel):
         """Account balance"""
-        amount: int = Body(..., example=100)
-        currency: str = Body(..., example='USD')
+        amount: int = Field(..., example=100)
+        currency: str = Field(..., example='USD')
 
 
     # errors
@@ -277,7 +277,7 @@ Development
 
     .. code-block:: bash
 
-        rst_include include -s README.src.rst -t README.rst -q
+        rst_include include -q README.src.rst README.rst
 
 * Change dependencies
 
