@@ -1,4 +1,5 @@
 import asyncio
+import contextvars
 import inspect
 import logging
 from json import JSONDecodeError
@@ -30,6 +31,18 @@ import aiojobs
 
 
 logger = logging.getLogger(__name__)
+
+
+_jsonrpc_request_id = contextvars.ContextVar('_fastapi_jsonrpc__jsonrpc_request_id', default=None)
+_jsonrpc_method = contextvars.ContextVar('_fastapi_jsonrpc__jsonrpc_method', default=None)
+
+
+def get_jsonrpc_request_id() -> Any:
+    return _jsonrpc_request_id.get()
+
+
+def get_jsonrpc_method() -> Optional[str]:
+    return _jsonrpc_method.get()
 
 
 class Params(fastapi.params.Body):
@@ -623,24 +636,32 @@ class MethodRoute(APIRoute):
         # But if the methods have their own dependencies, they are resolved separately.
         dependency_cache = dependency_cache.copy()
 
-        values, errors, background_tasks, sub_response, _ = await solve_dependencies(
-            request=http_request,
-            dependant=self.func_dependant,
-            body=req['params'],
-            background_tasks=background_tasks,
-            dependency_overrides_provider=self.dependency_overrides_provider,
-            dependency_cache=dependency_cache,
-        )
+        jsonrpc_request_id_token = _jsonrpc_request_id.set(req.get('id'))
+        jsonrpc_method_token = _jsonrpc_method.set(req['method'])
 
-        if errors:
-            raise invalid_params_from_validation_error(RequestValidationError(errors))
+        try:
+            values, errors, background_tasks, sub_response, _ = await solve_dependencies(
+                request=http_request,
+                dependant=self.func_dependant,
+                body=req['params'],
+                background_tasks=background_tasks,
+                dependency_overrides_provider=self.dependency_overrides_provider,
+                dependency_cache=dependency_cache,
+            )
 
-        result = await call_sync_async(self.func, **values)
+            if errors:
+                raise invalid_params_from_validation_error(RequestValidationError(errors))
+
+            result = await call_sync_async(self.func, **values)
+
+        finally:
+            _jsonrpc_request_id.reset(jsonrpc_request_id_token)
+            _jsonrpc_method.reset(jsonrpc_method_token)
 
         response = {
             'jsonrpc': '2.0',
             'result': result,
-            'id': req.get('id')
+            'id': req.get('id'),
         }
 
         # noinspection PyTypeChecker
@@ -1005,7 +1026,7 @@ class Entrypoint(APIRouter):
         self,
         **kwargs,
     ) -> Callable:
-        def decorator(func: Callable) -> Callable:
+        def decorator(func: FunctionType) -> Callable:
             self.add_method_route(
                 func,
                 **kwargs,
