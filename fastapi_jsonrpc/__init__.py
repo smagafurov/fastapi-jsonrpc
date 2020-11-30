@@ -558,35 +558,56 @@ class MethodRoute(APIRoute):
     async def handle_http_request(self, http_request: Request):
         background_tasks = BackgroundTasks()
 
+        # noinspection PyTypeChecker
+        sub_response = Response(
+            content=None,
+            status_code=None,
+            headers=None,
+            media_type=None,
+            background=None,
+        )
+
         try:
             body = await self.parse_body(http_request)
         except Exception as exc:
             resp = await self.entrypoint.handle_exception_to_resp(exc)
+            response = self.response_class(content=resp, background=background_tasks)
         else:
             try:
-                resp = await self.handle_body(http_request, background_tasks, body)
+                resp = await self.handle_body(http_request, background_tasks, sub_response, body)
             except NoContent:
                 # no content for successful notifications
-                return Response(media_type='application/json', background=background_tasks)
+                response = Response(media_type='application/json', background=background_tasks)
+            else:
+                response = self.response_class(content=resp, background=background_tasks)
 
-        return self.response_class(content=resp, background=background_tasks)
+        response.headers.raw.extend(sub_response.headers.raw)
+        if sub_response.status_code:
+            response.status_code = sub_response.status_code
+
+        return response
 
     async def handle_body(
         self,
         http_request: Request,
         background_tasks: BackgroundTasks,
+        sub_response: Response,
         body: Any,
     ) -> dict:
         # Shared dependencies for all requests in one json-rpc batch request
         shared_dependencies_error = None
         try:
-            dependency_cache = await self.entrypoint.solve_shared_dependencies(http_request, background_tasks)
+            dependency_cache = await self.entrypoint.solve_shared_dependencies(
+                http_request,
+                background_tasks,
+                sub_response,
+            )
         except BaseError as error:
             shared_dependencies_error = error
             dependency_cache = None
 
         return await self.handle_req_to_resp(
-            http_request, background_tasks, body,
+            http_request, background_tasks, sub_response, body,
             dependency_cache=dependency_cache,
             shared_dependencies_error=shared_dependencies_error,
         )
@@ -595,12 +616,13 @@ class MethodRoute(APIRoute):
         self,
         http_request: Request,
         background_tasks: BackgroundTasks,
+        sub_response: Response,
         req: Any,
         dependency_cache: dict = None,
         shared_dependencies_error: BaseError = None
     ) -> dict:
         handler_coro = self.handle_req(
-            http_request, background_tasks, req,
+            http_request, background_tasks, sub_response, req,
             dependency_cache=dependency_cache,
             shared_dependencies_error=shared_dependencies_error,
         )
@@ -610,6 +632,7 @@ class MethodRoute(APIRoute):
         self,
         http_request: Request,
         background_tasks: BackgroundTasks,
+        sub_response: Response,
         req: Any,
         dependency_cache: dict = None,
         shared_dependencies_error: BaseError = None
@@ -640,11 +663,12 @@ class MethodRoute(APIRoute):
         jsonrpc_method_token = _jsonrpc_method.set(req['method'])
 
         try:
-            values, errors, background_tasks, sub_response, _ = await solve_dependencies(
+            values, errors, background_tasks, _, _ = await solve_dependencies(
                 request=http_request,
                 dependant=self.func_dependant,
                 body=req['params'],
                 background_tasks=background_tasks,
+                response=sub_response,
                 dependency_overrides_provider=self.dependency_overrides_provider,
                 dependency_cache=dependency_cache,
             )
@@ -752,7 +776,12 @@ class EntrypointRoute(APIRoute):
         self.entrypoint = entrypoint
         self.common_dependencies = common_dependencies
 
-    async def solve_shared_dependencies(self, http_request: Request, background_tasks: BackgroundTasks) -> dict:
+    async def solve_shared_dependencies(
+        self,
+        http_request: Request,
+        background_tasks: BackgroundTasks,
+        sub_response: Response,
+    ) -> dict:
         # Must not be empty, otherwise FastAPI re-creates it
         dependency_cache = {(lambda: None, ('', )): 1}
         if self.dependencies:
@@ -761,6 +790,7 @@ class EntrypointRoute(APIRoute):
                 dependant=self.shared_dependant,
                 body=None,
                 background_tasks=background_tasks,
+                response=sub_response,
                 dependency_overrides_provider=self.dependency_overrides_provider,
                 dependency_cache=dependency_cache,
             )
@@ -784,29 +814,50 @@ class EntrypointRoute(APIRoute):
     async def handle_http_request(self, http_request: Request):
         background_tasks = BackgroundTasks()
 
+        # noinspection PyTypeChecker
+        sub_response = Response(
+            content=None,
+            status_code=None,
+            headers=None,
+            media_type=None,
+            background=None,
+        )
+
         try:
             body = await self.parse_body(http_request)
         except Exception as exc:
             resp = await self.entrypoint.handle_exception_to_resp(exc)
+            response = self.response_class(content=resp, background=background_tasks)
         else:
             try:
-                resp = await self.handle_body(http_request, background_tasks, body)
+                resp = await self.handle_body(http_request, background_tasks, sub_response, body)
             except NoContent:
                 # no content for successful notifications
-                return Response(media_type='application/json', background=background_tasks)
+                response = Response(media_type='application/json', background=background_tasks)
+            else:
+                response = self.response_class(content=resp, background=background_tasks)
 
-        return self.response_class(content=resp, background=background_tasks)
+        response.headers.raw.extend(sub_response.headers.raw)
+        if sub_response.status_code:
+            response.status_code = sub_response.status_code
+
+        return response
 
     async def handle_body(
         self,
         http_request: Request,
         background_tasks: BackgroundTasks,
+        sub_response: Response,
         body: Any,
     ) -> dict:
         # Shared dependencies for all requests in one json-rpc batch request
         shared_dependencies_error = None
         try:
-            dependency_cache = await self.solve_shared_dependencies(http_request, background_tasks)
+            dependency_cache = await self.solve_shared_dependencies(
+                http_request,
+                background_tasks,
+                sub_response,
+            )
         except BaseError as error:
             shared_dependencies_error = error
             dependency_cache = None
@@ -824,7 +875,7 @@ class EntrypointRoute(APIRoute):
             for req in req_list:
                 job = await scheduler.spawn(
                     self.handle_req_to_resp(
-                        http_request, background_tasks, req,
+                        http_request, background_tasks, sub_response, req,
                         dependency_cache=dependency_cache,
                         shared_dependencies_error=shared_dependencies_error,
                     )
@@ -839,7 +890,7 @@ class EntrypointRoute(APIRoute):
         else:
             req = req_list[0]
             coro = self.handle_req_to_resp(
-                http_request, background_tasks, req,
+                http_request, background_tasks, sub_response, req,
                 dependency_cache=dependency_cache,
                 shared_dependencies_error=shared_dependencies_error,
             )
@@ -870,12 +921,13 @@ class EntrypointRoute(APIRoute):
         self,
         http_request: Request,
         background_tasks: BackgroundTasks,
+        sub_response: Response,
         req: Any,
         dependency_cache: dict = None,
         shared_dependencies_error: BaseError = None
     ) -> dict:
         handler_coro = self.handle_req(
-            http_request, background_tasks, req,
+            http_request, background_tasks, sub_response, req,
             dependency_cache=dependency_cache,
             shared_dependencies_error=shared_dependencies_error,
         )
@@ -885,6 +937,7 @@ class EntrypointRoute(APIRoute):
         self,
         http_request: Request,
         background_tasks: BackgroundTasks,
+        sub_response: Response,
         req: Any,
         dependency_cache: dict = None,
         shared_dependencies_error: BaseError = None
@@ -906,7 +959,7 @@ class EntrypointRoute(APIRoute):
             if match == Match.FULL:
                 # http_request is a transport layer and it is common for all JSON-RPC requests in a batch
                 return await route.handle_req(
-                    http_request, background_tasks, req,
+                    http_request, background_tasks, sub_response, req,
                     dependency_cache=dependency_cache,
                     shared_dependencies_error=shared_dependencies_error,
                 )
@@ -1002,8 +1055,17 @@ class Entrypoint(APIRouter):
         for route in self.routes:
             route.dependency_overrides_provider = value
 
-    async def solve_shared_dependencies(self, http_request: Request, background_tasks: BackgroundTasks) -> dict:
-        return await self.entrypoint_route.solve_shared_dependencies(http_request, background_tasks)
+    async def solve_shared_dependencies(
+        self,
+        http_request: Request,
+        background_tasks: BackgroundTasks,
+        sub_response: Response,
+    ) -> dict:
+        return await self.entrypoint_route.solve_shared_dependencies(
+            http_request,
+            background_tasks,
+            sub_response,
+        )
 
     def add_method_route(
         self,
