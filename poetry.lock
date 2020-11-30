@@ -441,7 +441,7 @@ lib-log-utils = "*"
 pathlib3x = "*"
 
 [[package]]
-category = "main"
+category = "dev"
 description = "Python 2 and 3 compatibility utilities"
 name = "six"
 optional = false
@@ -545,7 +545,7 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["pytest (>=3.5,<3.7.3 || >3.7.3)", "pytest-checkdocs (>=1.2.3)", "pytest-flake8", "pytest-cov", "jaraco.test (>=3.2.0)", "jaraco.itertools", "func-timeout", "pytest-black (>=0.3.7)", "pytest-mypy"]
 
 [metadata]
-content-hash = "a8a6810ea108b23289ff4f51d860866cb6ba1f14898b90ce93e3f447aa32fbf1"
+content-hash = "89afe515ad31d07ef7c57113de86bcf000ffc613f000a5a7f7c75e08e866bf08"
 python-versions = "^3.6"
 
 [metadata.files]
