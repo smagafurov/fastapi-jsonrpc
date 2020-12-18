@@ -531,7 +531,7 @@ class MethodRoute(APIRoute):
             name=name,
             response_class=response_class,
             response_model=_Response,
-            response_model_exclude_unset=kwargs.pop("response_model_exclude_unset", True),
+            response_model_exclude_unset=kwargs.pop("response_model_exclude_unset", False),
             responses=responses,
             **kwargs,
         )
