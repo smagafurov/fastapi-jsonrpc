@@ -37,9 +37,9 @@ def app_client(app):
 
 @pytest.fixture
 def raw_request(app_client, ep_path):
-    def requester(body):
+    def requester(body, path_postfix=''):
         resp = app_client.post(
-            url=ep_path,
+            url=ep_path + path_postfix,
             data=body,
         )
         return resp
@@ -48,19 +48,28 @@ def raw_request(app_client, ep_path):
 
 @pytest.fixture
 def json_request(raw_request):
-    def requester(data):
-        resp = raw_request(json_dumps(data))
+    def requester(data, path_postfix=''):
+        resp = raw_request(json_dumps(data), path_postfix=path_postfix)
         return resp.json()
     return requester
 
 
+@pytest.fixture(params=[False, True])
+def add_path_postfix(request):
+    return request.param
+
+
 @pytest.fixture
-def method_request(json_request):
+def method_request(json_request, add_path_postfix):
     def requester(method, params, request_id=0):
+        if add_path_postfix:
+            path_postfix = '/' + method
+        else:
+            path_postfix = ''
         return json_request({
             'id': request_id,
             'jsonrpc': '2.0',
             'method': method,
             'params': params,
-        })
+        }, path_postfix=path_postfix)
     return requester

@@ -2,6 +2,8 @@ import asyncio
 import contextvars
 import inspect
 import logging
+from collections import ChainMap
+from contextlib import AsyncExitStack, AbstractAsyncContextManager, AbstractContextManager, asynccontextmanager
 from json import JSONDecodeError
 from types import FunctionType, CoroutineType
 from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable
@@ -33,16 +35,19 @@ import aiojobs
 logger = logging.getLogger(__name__)
 
 
-_jsonrpc_request_id = contextvars.ContextVar('_fastapi_jsonrpc__jsonrpc_request_id', default=None)
-_jsonrpc_method = contextvars.ContextVar('_fastapi_jsonrpc__jsonrpc_method', default=None)
+try:
+    from functools import cached_property
+except ImportError:
+    class cached_property:  # noqa
+        def __init__(self, func):
+            self.__doc__ = getattr(func, "__doc__")
+            self.func = func
 
-
-def get_jsonrpc_request_id() -> Any:
-    return _jsonrpc_request_id.get()
-
-
-def get_jsonrpc_method() -> Optional[str]:
-    return _jsonrpc_method.get()
+        def __get__(self, obj, cls):
+            if obj is None:
+                return self
+            value = obj.__dict__[self.func.__name__] = self.func(obj)
+            return value
 
 
 class Params(fastapi.params.Body):
@@ -480,6 +485,83 @@ def make_request_model(name, module, body_params: List[ModelField]):
     return _Request
 
 
+class JsonRpcContext:
+    def __init__(self, entrypoint: 'Entrypoint', raw_request: Any):
+        self.entrypoint: Entrypoint = entrypoint
+        self.raw_request: Any = raw_request
+        self.raw_response: Optional[dict] = None
+        self.exit_stack: Optional[AsyncExitStack] = None
+        self.jsonrpc_context_token: Optional[contextvars.Token] = None
+
+    def on_raw_response(self, raw_response: dict):
+        raw_response.pop('id', None)
+        if isinstance(self.raw_request, dict) and 'id' in self.raw_request:
+            raw_response['id'] = self.raw_request.get('id')
+        elif 'error' in raw_response:
+            raw_response['id'] = None
+        self.raw_response = raw_response
+        return self.raw_response
+
+    @cached_property
+    def request(self) -> JsonRpcRequest:
+        try:
+            return JsonRpcRequest.validate(self.raw_request)
+        except DictError:
+            raise InvalidRequest(data={'errors': [{
+                'loc': (),
+                'type': 'type_error.dict',
+                'msg': "value is not a valid dict",
+            }]})
+        except ValidationError as exc:
+            raise invalid_request_from_validation_error(exc)
+
+    async def __aenter__(self):
+        assert self.exit_stack is None
+        self.exit_stack = await AsyncExitStack().__aenter__()
+        await self.exit_stack.enter_async_context(self._handle_exception())
+        self.jsonrpc_context_token = _jsonrpc_context.set(self)
+        return self
+
+    async def __aexit__(self, *exc_details):
+        assert self.jsonrpc_context_token is not None
+        _jsonrpc_context.reset(self.jsonrpc_context_token)
+        return await self.exit_stack.__aexit__(*exc_details)
+
+    @asynccontextmanager
+    async def _handle_exception(self):
+        try:
+            yield
+        except Exception as exc:
+            resp = await self.entrypoint.handle_exception_to_resp(exc)
+            self.on_raw_response(resp)
+
+    async def enter_middlewares(self, middlewares: Sequence['JsonRpcMiddleware']):
+        for mw in middlewares:
+            cm = mw(self)
+            if not isinstance(cm, AbstractAsyncContextManager):
+                raise RuntimeError("JsonRpcMiddleware(context) must return AsyncContextManager")
+            await self.exit_stack.enter_async_context(cm)
+            await self.exit_stack.enter_async_context(self._handle_exception())
+
+
+JsonRpcMiddleware = Callable[[JsonRpcContext], AbstractAsyncContextManager]
+
+
+_jsonrpc_context = contextvars.ContextVar('_fastapi_jsonrpc__jsonrpc_context')
+
+
+def get_jsonrpc_context() -> JsonRpcContext:
+    return _jsonrpc_context.get()
+
+
+def get_jsonrpc_request_id() -> Optional[Union[str, int]]:
+    return get_jsonrpc_context().raw_request.get('id')
+
+
+def get_jsonrpc_method() -> Optional[str]:
+    return get_jsonrpc_context().raw_request.get('method')
+
+
 class MethodRoute(APIRoute):
     def __init__(
         self,
@@ -492,6 +574,7 @@ class MethodRoute(APIRoute):
         errors: Sequence[Type[BaseError]] = None,
         dependencies: Sequence[Depends] = None,
         response_class: Type[Response] = JSONResponse,
+        jsonrpc_middlewares: Sequence[JsonRpcMiddleware] = None,
         **kwargs,
     ):
         name = name or func.__name__
@@ -545,6 +628,7 @@ class MethodRoute(APIRoute):
         self.func = func
         self.func_dependant = func_dependant
         self.entrypoint = entrypoint
+        self.jsonrpc_middlewares = jsonrpc_middlewares or []
         self.app = request_response(self.handle_http_request)
 
     async def parse_body(self, http_request) -> Any:
@@ -605,11 +689,18 @@ class MethodRoute(APIRoute):
             shared_dependencies_error = error
             dependency_cache = None
 
-        return await self.handle_req_to_resp(
+        resp = await self.handle_req_to_resp(
             http_request, background_tasks, sub_response, body,
             dependency_cache=dependency_cache,
             shared_dependencies_error=shared_dependencies_error,
         )
+
+        # No response for successful notifications
+        has_content = 'error' in resp or 'id' in resp
+        if not has_content:
+            raise NoContent
+
+        return resp
 
     async def handle_req_to_resp(
         self,
@@ -620,35 +711,31 @@ class MethodRoute(APIRoute):
         dependency_cache: dict = None,
         shared_dependencies_error: BaseError = None
     ) -> dict:
-        handler_coro = self.handle_req(
-            http_request, background_tasks, sub_response, req,
-            dependency_cache=dependency_cache,
-            shared_dependencies_error=shared_dependencies_error,
-        )
-        return await self.entrypoint.handle_req_to_resp(handler_coro, req)
+        async with JsonRpcContext(self.entrypoint, req) as ctx:
+            await ctx.enter_middlewares(self.entrypoint.jsonrpc_middlewares)
+
+            if ctx.request.method != self.name:
+                raise MethodNotFound
+
+            resp = await self.handle_req(
+                http_request, background_tasks, sub_response, ctx,
+                dependency_cache=dependency_cache,
+                shared_dependencies_error=shared_dependencies_error,
+            )
+            ctx.on_raw_response(resp)
+
+        return ctx.raw_response
 
     async def handle_req(
         self,
         http_request: Request,
         background_tasks: BackgroundTasks,
         sub_response: Response,
-        req: Any,
+        ctx: JsonRpcContext,
         dependency_cache: dict = None,
         shared_dependencies_error: BaseError = None
     ):
-        try:
-            JsonRpcRequest.validate(req)
-        except DictError:
-            raise InvalidRequest(data={'errors': [{
-                'loc': (),
-                'type': 'type_error.dict',
-                'msg': "value is not a valid dict",
-            }]})
-        except ValidationError as exc:
-            raise invalid_request_from_validation_error(exc)
-
-        if req['method'] != self.name:
-            raise MethodNotFound
+        await ctx.enter_middlewares(self.jsonrpc_middlewares)
 
         if shared_dependencies_error:
             raise shared_dependencies_error
@@ -658,33 +745,24 @@ class MethodRoute(APIRoute):
         # But if the methods have their own dependencies, they are resolved separately.
         dependency_cache = dependency_cache.copy()
 
-        jsonrpc_request_id_token = _jsonrpc_request_id.set(req.get('id'))
-        jsonrpc_method_token = _jsonrpc_method.set(req['method'])
+        values, errors, background_tasks, _, _ = await solve_dependencies(
+            request=http_request,
+            dependant=self.func_dependant,
+            body=ctx.request.params,
+            background_tasks=background_tasks,
+            response=sub_response,
+            dependency_overrides_provider=self.dependency_overrides_provider,
+            dependency_cache=dependency_cache,
+        )
 
-        try:
-            values, errors, background_tasks, _, _ = await solve_dependencies(
-                request=http_request,
-                dependant=self.func_dependant,
-                body=req['params'],
-                background_tasks=background_tasks,
-                response=sub_response,
-                dependency_overrides_provider=self.dependency_overrides_provider,
-                dependency_cache=dependency_cache,
-            )
+        if errors:
+            raise invalid_params_from_validation_error(RequestValidationError(errors))
 
-            if errors:
-                raise invalid_params_from_validation_error(RequestValidationError(errors))
-
-            result = await call_sync_async(self.func, **values)
-
-        finally:
-            _jsonrpc_request_id.reset(jsonrpc_request_id_token)
-            _jsonrpc_method.reset(jsonrpc_method_token)
+        result = await call_sync_async(self.func, **values)
 
         response = {
             'jsonrpc': '2.0',
             'result': result,
-            'id': req.get('id'),
         }
 
         # noinspection PyTypeChecker
@@ -698,6 +776,31 @@ class MethodRoute(APIRoute):
         )
 
         return resp
+
+
+class RequestShadow(Request):
+    def __init__(self, request: Request):
+        super().__init__(scope=ChainMap({}, request.scope))
+        self.request = request
+
+    async def stream(self):
+        async for body in self.request.stream():
+            yield body
+
+    async def body(self):
+        return await self.request.body()
+
+    async def json(self):
+        return await self.request.json()
+
+    async def form(self):
+        return await self.request.form()
+
+    async def close(self):
+        raise NotImplementedError
+
+    async def is_disconnected(self):
+        return await self.request.is_disconnected()
 
 
 class EntrypointRoute(APIRoute):
@@ -898,10 +1001,11 @@ class EntrypointRoute(APIRoute):
         resp_list = []
 
         for coro in job_list:
-            try:
-                resp = await coro
-            except NoContent:
-                # No response for successful notifications
+            resp = await coro
+
+            # No response for successful notifications
+            has_content = 'error' in resp or 'id' in resp
+            if not has_content:
                 continue
 
             resp_list.append(resp)
@@ -925,40 +1029,36 @@ class EntrypointRoute(APIRoute):
         dependency_cache: dict = None,
         shared_dependencies_error: BaseError = None
     ) -> dict:
-        handler_coro = self.handle_req(
-            http_request, background_tasks, sub_response, req,
-            dependency_cache=dependency_cache,
-            shared_dependencies_error=shared_dependencies_error,
-        )
-        return await self.entrypoint.handle_req_to_resp(handler_coro, req)
+        async with JsonRpcContext(self.entrypoint, req) as ctx:
+            await ctx.enter_middlewares(self.entrypoint.jsonrpc_middlewares)
+
+            resp = await self.handle_req(
+                http_request, background_tasks, sub_response, ctx,
+                dependency_cache=dependency_cache,
+                shared_dependencies_error=shared_dependencies_error,
+            )
+            ctx.on_raw_response(resp)
+
+        return ctx.raw_response
 
     async def handle_req(
         self,
         http_request: Request,
         background_tasks: BackgroundTasks,
         sub_response: Response,
-        req: Any,
+        ctx: JsonRpcContext,
         dependency_cache: dict = None,
         shared_dependencies_error: BaseError = None
     ):
-        try:
-            JsonRpcRequest.validate(req)
-        except DictError:
-            raise InvalidRequest(data={'errors': [
-                {'loc': (), 'type': 'type_error.dict', 'msg': "value is not a valid dict"}
-            ]})
-        except ValidationError as exc:
-            raise invalid_request_from_validation_error(exc)
+        http_request_shadow = RequestShadow(http_request)
+        http_request_shadow.scope['path'] = self.path + '/' + ctx.request.method
 
-        scope = http_request.scope.copy()
-        scope['path'] = self.path + '/' + req['method']
-
-        for route in self.entrypoint.routes:
-            match, child_scope = route.matches(scope)
+        for route in self.entrypoint.routes:  # type: MethodRoute
+            match, child_scope = route.matches(http_request_shadow.scope)
             if match == Match.FULL:
                 # http_request is a transport layer and it is common for all JSON-RPC requests in a batch
                 return await route.handle_req(
-                    http_request, background_tasks, sub_response, req,
+                    http_request_shadow, background_tasks, sub_response, ctx,
                     dependency_cache=dependency_cache,
                     shared_dependencies_error=shared_dependencies_error,
                 )
@@ -982,6 +1082,7 @@ class Entrypoint(APIRouter):
         errors: Sequence[Type[BaseError]] = None,
         dependencies: Sequence[Depends] = None,
         common_dependencies: Sequence[Depends] = None,
+        jsonrpc_middlewares: Sequence[JsonRpcMiddleware] = None,
         scheduler_factory: Callable[..., Awaitable[aiojobs.Scheduler]] = aiojobs.create_scheduler,
         scheduler_kwargs: dict = None,
         **kwargs,
@@ -989,6 +1090,7 @@ class Entrypoint(APIRouter):
         super().__init__(redirect_slashes=False)
         if errors is None:
             errors = self.default_errors
+        self.jsonrpc_middlewares = jsonrpc_middlewares or []
         self.scheduler_factory = scheduler_factory
         self.scheduler_kwargs = scheduler_kwargs
         self.scheduler = None
@@ -1029,25 +1131,6 @@ class Entrypoint(APIRouter):
         except Exception as exc:
             logger.exception(str(exc), exc_info=exc)
             resp = InternalError().get_resp()
-        return resp
-
-    async def handle_req_to_resp(self, handler_coro: Awaitable, req: Any) -> dict:
-        try:
-            resp = await handler_coro
-        except Exception as exc:
-            resp = await self.handle_exception_to_resp(exc)
-
-        # empty response for successful notifications
-        has_content = 'error' in resp or 'id' in req
-
-        if not has_content:
-            raise NoContent
-
-        if isinstance(req, dict):
-            resp['id'] = req.get('id')
-        else:
-            resp['id'] = None
-
         return resp
 
     def bind_dependency_overrides_provider(self, value):

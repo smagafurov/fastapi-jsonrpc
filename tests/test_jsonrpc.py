@@ -19,7 +19,22 @@ def echo(ep, method_request):
         echo_info.history.append(data)
         return data
 
+    @ep.method()
+    def no_params(
+    ) -> str:
+        return '123'
+
     return echo_info
+
+
+def test_no_params(echo, json_request):
+    resp = json_request({
+        'id': 111,
+        'jsonrpc': '2.0',
+        'method': 'no_params',
+        'params': {},
+    })
+    assert resp == {'id': 111, 'jsonrpc': '2.0', 'result': '123'}
 
 
 @pytest.mark.parametrize('request_id', [111, 'qwe'])

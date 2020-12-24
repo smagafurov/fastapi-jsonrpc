@@ -10,19 +10,19 @@ def ep(ep_path):
     _shared_counter = 0
     _common_counter = 0
 
-    def get_shared_counter(
+    async def get_shared_counter(
         shared: str = Header('shared'),
     ) -> str:
         nonlocal _shared_counter
         _shared_counter += 1
-        return f'{shared}-{_shared_counter}'
+        yield f'{shared}-{_shared_counter}'
 
-    def get_common_counter(
+    async def get_common_counter(
         common: str = Body(...),
     ) -> str:
         nonlocal _common_counter
         _common_counter += 1
-        return f'{common}-{_common_counter}'
+        yield f'{common}-{_common_counter}'
 
     ep = jsonrpc.Entrypoint(
         ep_path,
