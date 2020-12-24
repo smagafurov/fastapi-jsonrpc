@@ -36,7 +36,7 @@ def ep(ep_path):
 
     ep = jsonrpc.Entrypoint(
         ep_path,
-        jsonrpc_middlewares=[mw_first, mw_exception_enter, mw_last],
+        middlewares=[mw_first, mw_exception_enter, mw_last],
     )
 
     @ep.method()

@@ -574,7 +574,7 @@ class MethodRoute(APIRoute):
         errors: Sequence[Type[BaseError]] = None,
         dependencies: Sequence[Depends] = None,
         response_class: Type[Response] = JSONResponse,
-        jsonrpc_middlewares: Sequence[JsonRpcMiddleware] = None,
+        middlewares: Sequence[JsonRpcMiddleware] = None,
         **kwargs,
     ):
         name = name or func.__name__
@@ -628,7 +628,7 @@ class MethodRoute(APIRoute):
         self.func = func
         self.func_dependant = func_dependant
         self.entrypoint = entrypoint
-        self.jsonrpc_middlewares = jsonrpc_middlewares or []
+        self.middlewares = middlewares or []
         self.app = request_response(self.handle_http_request)
 
     async def parse_body(self, http_request) -> Any:
@@ -712,7 +712,7 @@ class MethodRoute(APIRoute):
         shared_dependencies_error: BaseError = None
     ) -> dict:
         async with JsonRpcContext(self.entrypoint, req) as ctx:
-            await ctx.enter_middlewares(self.entrypoint.jsonrpc_middlewares)
+            await ctx.enter_middlewares(self.entrypoint.middlewares)
 
             if ctx.request.method != self.name:
                 raise MethodNotFound
@@ -735,7 +735,7 @@ class MethodRoute(APIRoute):
         dependency_cache: dict = None,
         shared_dependencies_error: BaseError = None
     ):
-        await ctx.enter_middlewares(self.jsonrpc_middlewares)
+        await ctx.enter_middlewares(self.middlewares)
 
         if shared_dependencies_error:
             raise shared_dependencies_error
@@ -1030,7 +1030,7 @@ class EntrypointRoute(APIRoute):
         shared_dependencies_error: BaseError = None
     ) -> dict:
         async with JsonRpcContext(self.entrypoint, req) as ctx:
-            await ctx.enter_middlewares(self.entrypoint.jsonrpc_middlewares)
+            await ctx.enter_middlewares(self.entrypoint.middlewares)
 
             resp = await self.handle_req(
                 http_request, background_tasks, sub_response, ctx,
@@ -1082,7 +1082,7 @@ class Entrypoint(APIRouter):
         errors: Sequence[Type[BaseError]] = None,
         dependencies: Sequence[Depends] = None,
         common_dependencies: Sequence[Depends] = None,
-        jsonrpc_middlewares: Sequence[JsonRpcMiddleware] = None,
+        middlewares: Sequence[JsonRpcMiddleware] = None,
         scheduler_factory: Callable[..., Awaitable[aiojobs.Scheduler]] = aiojobs.create_scheduler,
         scheduler_kwargs: dict = None,
         **kwargs,
@@ -1090,7 +1090,7 @@ class Entrypoint(APIRouter):
         super().__init__(redirect_slashes=False)
         if errors is None:
             errors = self.default_errors
-        self.jsonrpc_middlewares = jsonrpc_middlewares or []
+        self.middlewares = middlewares or []
         self.scheduler_factory = scheduler_factory
         self.scheduler_kwargs = scheduler_kwargs
         self.scheduler = None

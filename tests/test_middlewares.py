@@ -27,16 +27,16 @@ def ep(ep_path):
 
     ep = jsonrpc.Entrypoint(
         ep_path,
-        jsonrpc_middlewares=[ep_middleware],
+        middlewares=[ep_middleware],
     )
 
-    @ep.method(jsonrpc_middlewares=[method_middleware])
+    @ep.method(middlewares=[method_middleware])
     def probe(
         data: str = Body(..., example='123'),
     ) -> str:
         return data
 
-    @ep.method(jsonrpc_middlewares=[method_middleware])
+    @ep.method(middlewares=[method_middleware])
     def probe_error(
     ) -> str:
         raise RuntimeError('qwe')
