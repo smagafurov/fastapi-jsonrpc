@@ -486,9 +486,19 @@ def make_request_model(name, module, body_params: List[ModelField]):
 
 
 class JsonRpcContext:
-    def __init__(self, entrypoint: 'Entrypoint', raw_request: Any):
+    def __init__(
+        self,
+        entrypoint: 'Entrypoint',
+        raw_request: Any,
+        http_request: Request,
+        background_tasks: BackgroundTasks,
+        http_response: Response,
+    ):
         self.entrypoint: Entrypoint = entrypoint
         self.raw_request: Any = raw_request
+        self.http_request: Request = http_request
+        self.background_tasks: BackgroundTasks = background_tasks
+        self.http_response: Response = http_response
         self.raw_response: Optional[dict] = None
         self.exit_stack: Optional[AsyncExitStack] = None
         self.jsonrpc_context_token: Optional[contextvars.Token] = None
@@ -711,7 +721,13 @@ class MethodRoute(APIRoute):
         dependency_cache: dict = None,
         shared_dependencies_error: BaseError = None
     ) -> dict:
-        async with JsonRpcContext(self.entrypoint, req) as ctx:
+        async with JsonRpcContext(
+            entrypoint=self.entrypoint,
+            raw_request=req,
+            http_request=http_request,
+            background_tasks=background_tasks,
+            http_response=sub_response,
+        ) as ctx:
             await ctx.enter_middlewares(self.entrypoint.middlewares)
 
             if ctx.request.method != self.name:
@@ -1029,7 +1045,13 @@ class EntrypointRoute(APIRoute):
         dependency_cache: dict = None,
         shared_dependencies_error: BaseError = None
     ) -> dict:
-        async with JsonRpcContext(self.entrypoint, req) as ctx:
+        async with JsonRpcContext(
+            entrypoint=self.entrypoint,
+            raw_request=req,
+            http_request=http_request,
+            background_tasks=background_tasks,
+            http_response=sub_response,
+        ) as ctx:
             await ctx.enter_middlewares(self.entrypoint.middlewares)
 
             resp = await self.handle_req(
