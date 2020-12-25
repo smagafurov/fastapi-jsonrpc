@@ -1,5 +1,7 @@
 import contextlib
+import contextvars
 from collections import defaultdict
+from typing import Tuple
 
 import pytest
 from fastapi import Body
@@ -11,9 +13,13 @@ import fastapi_jsonrpc as jsonrpc
 def ep(ep_path):
     _calls = defaultdict(list)
 
+    ep_middleware_var = contextvars.ContextVar('ep_middleware')
+    method_middleware_var = contextvars.ContextVar('method_middleware')
+
     @contextlib.asynccontextmanager
     async def ep_middleware(ctx: jsonrpc.JsonRpcContext):
         nonlocal _calls
+        ep_middleware_var.set('ep_middleware-value')
         _calls[ctx.raw_request.get('id')].append(('ep_middleware', 'enter', ctx.raw_request, ctx.raw_response))
         yield
         _calls[ctx.raw_response.get('id')].append(('ep_middleware', 'exit', ctx.raw_request, ctx.raw_response))
@@ -21,6 +27,7 @@ def ep(ep_path):
     @contextlib.asynccontextmanager
     async def method_middleware(ctx):
         nonlocal _calls
+        method_middleware_var.set('method_middleware-value')
         _calls[ctx.raw_request.get('id')].append(('method_middleware', 'enter', ctx.raw_request, ctx.raw_response))
         yield
         _calls[ctx.raw_response.get('id')].append(('method_middleware', 'exit', ctx.raw_request, ctx.raw_response))
@@ -40,6 +47,11 @@ def ep(ep_path):
     def probe_error(
     ) -> str:
         raise RuntimeError('qwe')
+
+    @ep.method(middlewares=[method_middleware])
+    def probe_context_vars(
+    ) -> Tuple[str, str]:
+        return ep_middleware_var.get(), method_middleware_var.get()
 
     ep.calls = _calls
 
@@ -380,3 +392,8 @@ def test_batch_error(ep, json_request):
             )
         ]
     }
+
+
+def test_context_vars(ep, method_request):
+    resp = method_request('probe_context_vars', {}, request_id=111)
+    assert resp == {'id': 111, 'jsonrpc': '2.0', 'result': ['ep_middleware-value', 'method_middleware-value']}
