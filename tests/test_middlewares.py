@@ -1,5 +1,6 @@
 import contextlib
 import contextvars
+import sys
 from collections import defaultdict
 from typing import Tuple
 
@@ -20,17 +21,29 @@ def ep(ep_path):
     async def ep_middleware(ctx: jsonrpc.JsonRpcContext):
         nonlocal _calls
         ep_middleware_var.set('ep_middleware-value')
-        _calls[ctx.raw_request.get('id')].append(('ep_middleware', 'enter', ctx.raw_request, ctx.raw_response))
-        yield
-        _calls[ctx.raw_response.get('id')].append(('ep_middleware', 'exit', ctx.raw_request, ctx.raw_response))
+        _calls[ctx.raw_request.get('id')].append((
+            'ep_middleware', 'enter', ctx.raw_request, ctx.raw_response, sys.exc_info()[0]
+        ))
+        try:
+            yield
+        finally:
+            _calls[ctx.raw_response.get('id')].append((
+                'ep_middleware', 'exit', ctx.raw_request, ctx.raw_response, sys.exc_info()[0]
+            ))
 
     @contextlib.asynccontextmanager
     async def method_middleware(ctx):
         nonlocal _calls
         method_middleware_var.set('method_middleware-value')
-        _calls[ctx.raw_request.get('id')].append(('method_middleware', 'enter', ctx.raw_request, ctx.raw_response))
-        yield
-        _calls[ctx.raw_response.get('id')].append(('method_middleware', 'exit', ctx.raw_request, ctx.raw_response))
+        _calls[ctx.raw_request.get('id')].append((
+            'method_middleware', 'enter', ctx.raw_request, ctx.raw_response, sys.exc_info()[0]
+        ))
+        try:
+            yield
+        finally:
+            _calls[ctx.raw_response.get('id')].append((
+                'method_middleware', 'exit', ctx.raw_request, ctx.raw_response, sys.exc_info()[0]
+            ))
 
     ep = jsonrpc.Entrypoint(
         ep_path,
@@ -73,6 +86,7 @@ def test_single(ep, method_request):
                     'params': {'data': 'one'},
                 },
                 None,
+                None,
             ),
             (
                 'method_middleware',
@@ -83,6 +97,7 @@ def test_single(ep, method_request):
                     'method': 'probe',
                     'params': {'data': 'one'}
                 },
+                None,
                 None,
             ),
             (
@@ -95,6 +110,7 @@ def test_single(ep, method_request):
                     'params': {'data': 'one'}
                 },
                 {'id': 111, 'jsonrpc': '2.0', 'result': 'one'},
+                None,
             ),
             (
                 'ep_middleware',
@@ -106,6 +122,7 @@ def test_single(ep, method_request):
                     'params': {'data': 'one'}
                 },
                 {'id': 111, 'jsonrpc': '2.0', 'result': 'one'},
+                None,
             )
         ]
     }
@@ -126,6 +143,7 @@ def test_single_error(ep, method_request):
                     'params': {'data': 'one'},
                 },
                 None,
+                None,
             ),
             (
                 'method_middleware',
@@ -136,6 +154,7 @@ def test_single_error(ep, method_request):
                     'method': 'probe_error',
                     'params': {'data': 'one'}
                 },
+                None,
                 None,
             ),
             (
@@ -148,6 +167,7 @@ def test_single_error(ep, method_request):
                     'params': {'data': 'one'}
                 },
                 {'id': 111, 'jsonrpc': '2.0', 'error': {'code': -32603, 'message': 'Internal error'}},
+                RuntimeError,
             ),
             (
                 'ep_middleware',
@@ -159,6 +179,7 @@ def test_single_error(ep, method_request):
                     'params': {'data': 'one'}
                 },
                 {'id': 111, 'jsonrpc': '2.0', 'error': {'code': -32603, 'message': 'Internal error'}},
+                RuntimeError,
             )
         ]
     }
@@ -195,6 +216,7 @@ def test_batch(ep, json_request):
                     'params': {'data': 'one'},
                 },
                 None,
+                None,
             ),
             (
                 'method_middleware',
@@ -205,6 +227,7 @@ def test_batch(ep, json_request):
                     'method': 'probe',
                     'params': {'data': 'one'}
                 },
+                None,
                 None,
             ),
             (
@@ -217,6 +240,7 @@ def test_batch(ep, json_request):
                     'params': {'data': 'one'}
                 },
                 {'id': 111, 'jsonrpc': '2.0', 'result': 'one'},
+                None,
             ),
             (
                 'ep_middleware',
@@ -228,6 +252,7 @@ def test_batch(ep, json_request):
                     'params': {'data': 'one'}
                 },
                 {'id': 111, 'jsonrpc': '2.0', 'result': 'one'},
+                None,
             )
         ],
         222: [
@@ -241,6 +266,7 @@ def test_batch(ep, json_request):
                     'params': {'data': 'two'},
                 },
                 None,
+                None,
             ),
             (
                 'method_middleware',
@@ -251,6 +277,7 @@ def test_batch(ep, json_request):
                     'method': 'probe',
                     'params': {'data': 'two'}
                 },
+                None,
                 None,
             ),
             (
@@ -263,6 +290,7 @@ def test_batch(ep, json_request):
                     'params': {'data': 'two'}
                 },
                 {'id': 222, 'jsonrpc': '2.0', 'result': 'two'},
+                None,
             ),
             (
                 'ep_middleware',
@@ -274,6 +302,7 @@ def test_batch(ep, json_request):
                     'params': {'data': 'two'}
                 },
                 {'id': 222, 'jsonrpc': '2.0', 'result': 'two'},
+                None,
             )
         ]
     }
@@ -310,6 +339,7 @@ def test_batch_error(ep, json_request):
                     'params': {'data': 'one'},
                 },
                 None,
+                None,
             ),
             (
                 'method_middleware',
@@ -320,6 +350,7 @@ def test_batch_error(ep, json_request):
                     'method': 'probe_error',
                     'params': {'data': 'one'}
                 },
+                None,
                 None,
             ),
             (
@@ -332,6 +363,7 @@ def test_batch_error(ep, json_request):
                     'params': {'data': 'one'}
                 },
                 {'id': 111, 'jsonrpc': '2.0', 'error': {'code': -32603, 'message': 'Internal error'}},
+                RuntimeError,
             ),
             (
                 'ep_middleware',
@@ -343,6 +375,7 @@ def test_batch_error(ep, json_request):
                     'params': {'data': 'one'}
                 },
                 {'id': 111, 'jsonrpc': '2.0', 'error': {'code': -32603, 'message': 'Internal error'}},
+                RuntimeError,
             )
         ],
         222: [
@@ -356,6 +389,7 @@ def test_batch_error(ep, json_request):
                     'params': {'data': 'two'},
                 },
                 None,
+                None,
             ),
             (
                 'method_middleware',
@@ -366,6 +400,7 @@ def test_batch_error(ep, json_request):
                     'method': 'probe_error',
                     'params': {'data': 'two'}
                 },
+                None,
                 None,
             ),
             (
@@ -378,6 +413,7 @@ def test_batch_error(ep, json_request):
                     'params': {'data': 'two'}
                 },
                 {'id': 222, 'jsonrpc': '2.0', 'error': {'code': -32603, 'message': 'Internal error'}},
+                RuntimeError,
             ),
             (
                 'ep_middleware',
@@ -389,6 +425,7 @@ def test_batch_error(ep, json_request):
                     'params': {'data': 'two'}
                 },
                 {'id': 222, 'jsonrpc': '2.0', 'error': {'code': -32603, 'message': 'Internal error'}},
+                RuntimeError,
             )
         ]
     }

@@ -1,4 +1,5 @@
 import contextlib
+import sys
 from collections import defaultdict
 
 import pytest
@@ -14,25 +15,43 @@ def ep(ep_path):
     @contextlib.asynccontextmanager
     async def mw_first(ctx: jsonrpc.JsonRpcContext):
         nonlocal _calls
-        _calls[ctx.raw_request.get('id')].append(('mw_first', 'enter', ctx.raw_request, ctx.raw_response))
-        yield
-        _calls[ctx.raw_response.get('id')].append(('mw_first', 'exit', ctx.raw_request, ctx.raw_response))
+        _calls[ctx.raw_request.get('id')].append((
+            'mw_first', 'enter', ctx.raw_request, ctx.raw_response, sys.exc_info()[0]
+        ))
+        try:
+            yield
+        finally:
+            _calls[ctx.raw_response.get('id')].append((
+                'mw_first', 'exit', ctx.raw_request, ctx.raw_response, sys.exc_info()[0]
+            ))
 
     @contextlib.asynccontextmanager
     async def mw_exception_exit(ctx: jsonrpc.JsonRpcContext):
         nonlocal _calls
-        _calls[ctx.raw_request.get('id')].append(('mw_exception_exit', 'enter', ctx.raw_request, ctx.raw_response))
+        _calls[ctx.raw_request.get('id')].append((
+            'mw_exception_exit', 'enter', ctx.raw_request, ctx.raw_response, sys.exc_info()[0]
+        ))
         # noinspection PyUnreachableCode
-        yield
-        _calls[ctx.raw_response.get('id')].append(('mw_exception_exit', 'exit', ctx.raw_request, ctx.raw_response))
-        raise RuntimeError
+        try:
+            yield
+        finally:
+            _calls[ctx.raw_response.get('id')].append((
+                'mw_exception_exit', 'exit', ctx.raw_request, ctx.raw_response, sys.exc_info()[0]
+            ))
+            raise RuntimeError
 
     @contextlib.asynccontextmanager
     async def mw_last(ctx: jsonrpc.JsonRpcContext):
         nonlocal _calls
-        _calls[ctx.raw_request.get('id')].append(('mw_last', 'enter', ctx.raw_request, ctx.raw_response))
-        yield
-        _calls[ctx.raw_response.get('id')].append(('mw_last', 'exit', ctx.raw_request, ctx.raw_response))
+        _calls[ctx.raw_request.get('id')].append((
+            'mw_last', 'enter', ctx.raw_request, ctx.raw_response, sys.exc_info()[0]
+        ))
+        try:
+            yield
+        finally:
+            _calls[ctx.raw_response.get('id')].append((
+                'mw_last', 'exit', ctx.raw_request, ctx.raw_response, sys.exc_info()[0]
+            ))
 
     ep = jsonrpc.Entrypoint(
         ep_path,
@@ -65,6 +84,7 @@ def test_ep_exception(ep, method_request):
                     'params': {'data': 'one'},
                 },
                 None,
+                None,
             ),
             (
                 'mw_exception_exit',
@@ -75,6 +95,7 @@ def test_ep_exception(ep, method_request):
                     'method': 'probe',
                     'params': {'data': 'one'}
                 },
+                None,
                 None,
             ),
             (
@@ -87,6 +108,7 @@ def test_ep_exception(ep, method_request):
                     'params': {'data': 'one'},
                 },
                 None,
+                None,
             ),
             (
                 'mw_last',
@@ -98,6 +120,7 @@ def test_ep_exception(ep, method_request):
                     'params': {'data': 'one'},
                 },
                 {'id': 111, 'jsonrpc': '2.0', 'result': 'one'},
+                None,
             ),
             (
                 'mw_exception_exit',
@@ -109,6 +132,7 @@ def test_ep_exception(ep, method_request):
                     'params': {'data': 'one'}
                 },
                 {'id': 111, 'jsonrpc': '2.0', 'result': 'one'},
+                None,
             ),
             (
                 'mw_first',
@@ -120,6 +144,7 @@ def test_ep_exception(ep, method_request):
                     'params': {'data': 'one'}
                 },
                 {'id': 111, 'jsonrpc': '2.0', 'error': {'code': -32603, 'message': 'Internal error'}},
+                RuntimeError,
             ),
         ]
     }

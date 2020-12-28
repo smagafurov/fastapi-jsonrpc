@@ -3,7 +3,7 @@ import contextvars
 import inspect
 import logging
 from collections import ChainMap
-from contextlib import AsyncExitStack, AbstractAsyncContextManager, AbstractContextManager, asynccontextmanager
+from contextlib import AsyncExitStack, AbstractAsyncContextManager, asynccontextmanager
 from json import JSONDecodeError
 from types import FunctionType, CoroutineType
 from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable
@@ -499,18 +499,27 @@ class JsonRpcContext:
         self.http_request: Request = http_request
         self.background_tasks: BackgroundTasks = background_tasks
         self.http_response: Response = http_response
-        self.raw_response: Optional[dict] = None
+        self._raw_response: Optional[dict] = None
+        self.exception: Optional[Exception] = None
         self.exit_stack: Optional[AsyncExitStack] = None
         self.jsonrpc_context_token: Optional[contextvars.Token] = None
 
-    def on_raw_response(self, raw_response: dict):
+    def on_raw_response(self, raw_response: dict, exception: Optional[Exception] = None):
         raw_response.pop('id', None)
         if isinstance(self.raw_request, dict) and 'id' in self.raw_request:
             raw_response['id'] = self.raw_request.get('id')
         elif 'error' in raw_response:
             raw_response['id'] = None
-        self.raw_response = raw_response
-        return self.raw_response
+        self._raw_response = raw_response
+        self.exception = exception
+
+    @property
+    def raw_response(self) -> dict:
+        return self._raw_response
+
+    @raw_response.setter
+    def raw_response(self, value: dict):
+        self.on_raw_response(value)
 
     @cached_property
     def request(self) -> JsonRpcRequest:
@@ -528,7 +537,7 @@ class JsonRpcContext:
     async def __aenter__(self):
         assert self.exit_stack is None
         self.exit_stack = await AsyncExitStack().__aenter__()
-        await self.exit_stack.enter_async_context(self._handle_exception())
+        await self.exit_stack.enter_async_context(self._handle_exception(reraise=False))
         self.jsonrpc_context_token = _jsonrpc_context.set(self)
         return self
 
@@ -538,12 +547,21 @@ class JsonRpcContext:
         return await self.exit_stack.__aexit__(*exc_details)
 
     @asynccontextmanager
-    async def _handle_exception(self):
+    async def _handle_exception(self, reraise):
         try:
             yield
         except Exception as exc:
-            resp = await self.entrypoint.handle_exception_to_resp(exc)
-            self.on_raw_response(resp)
+            if exc is not self.exception:
+                try:
+                    resp = await self.entrypoint.handle_exception_to_resp(exc)
+                except Exception as exc:
+                    # HTTPException
+                    self._raw_response = None
+                    self.exception = exc
+                    raise
+                self.on_raw_response(resp, exc)
+            if reraise:
+                raise
 
     async def enter_middlewares(self, middlewares: Sequence['JsonRpcMiddleware']):
         for mw in middlewares:
@@ -551,7 +569,7 @@ class JsonRpcContext:
             if not isinstance(cm, AbstractAsyncContextManager):
                 raise RuntimeError("JsonRpcMiddleware(context) must return AsyncContextManager")
             await self.exit_stack.enter_async_context(cm)
-            await self.exit_stack.enter_async_context(self._handle_exception())
+            await self.exit_stack.enter_async_context(self._handle_exception(reraise=True))
 
 
 JsonRpcMiddleware = Callable[[JsonRpcContext], AbstractAsyncContextManager]
