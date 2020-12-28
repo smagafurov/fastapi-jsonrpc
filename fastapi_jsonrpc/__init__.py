@@ -547,7 +547,7 @@ class JsonRpcContext:
         return await self.exit_stack.__aexit__(*exc_details)
 
     @asynccontextmanager
-    async def _handle_exception(self, reraise):
+    async def _handle_exception(self, reraise=True):
         try:
             yield
         except Exception as exc:
@@ -562,6 +562,8 @@ class JsonRpcContext:
                 self.on_raw_response(resp, exc)
             if reraise:
                 raise
+            else:
+                logger.exception(str(exc), exc_info=exc)
 
     async def enter_middlewares(self, middlewares: Sequence['JsonRpcMiddleware']):
         for mw in middlewares:
@@ -569,7 +571,7 @@ class JsonRpcContext:
             if not isinstance(cm, AbstractAsyncContextManager):
                 raise RuntimeError("JsonRpcMiddleware(context) must return AsyncContextManager")
             await self.exit_stack.enter_async_context(cm)
-            await self.exit_stack.enter_async_context(self._handle_exception(reraise=True))
+            await self.exit_stack.enter_async_context(self._handle_exception())
 
 
 JsonRpcMiddleware = Callable[[JsonRpcContext], AbstractAsyncContextManager]
@@ -681,6 +683,7 @@ class MethodRoute(APIRoute):
         try:
             body = await self.parse_body(http_request)
         except Exception as exc:
+            logger.exception(str(exc), exc_info=exc)
             resp = await self.entrypoint.handle_exception_to_resp(exc)
             response = self.response_class(content=resp, background=background_tasks)
         else:
@@ -962,6 +965,7 @@ class EntrypointRoute(APIRoute):
         try:
             body = await self.parse_body(http_request)
         except Exception as exc:
+            logger.exception(str(exc), exc_info=exc)
             resp = await self.entrypoint.handle_exception_to_resp(exc)
             response = self.response_class(content=resp, background=background_tasks)
         else:
@@ -1170,8 +1174,7 @@ class Entrypoint(APIRouter):
             resp = error.get_resp()
         except HTTPException:
             raise
-        except Exception as exc:
-            logger.exception(str(exc), exc_info=exc)
+        except Exception:  # noqa
             resp = InternalError().get_resp()
         return resp
 

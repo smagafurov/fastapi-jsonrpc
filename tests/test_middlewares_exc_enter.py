@@ -1,11 +1,15 @@
 import contextlib
 import sys
+import uuid
 from collections import defaultdict
 
 import pytest
 from fastapi import Body
 
 import fastapi_jsonrpc as jsonrpc
+
+
+unique_marker = str(uuid.uuid4())
 
 
 @pytest.fixture
@@ -31,7 +35,7 @@ def ep(ep_path):
         _calls[ctx.raw_request.get('id')].append((
             'mw_exception_enter', 'enter', ctx.raw_request, ctx.raw_response, sys.exc_info()[0]
         ))
-        raise RuntimeError
+        raise RuntimeError(unique_marker)
         # noinspection PyUnreachableCode
         try:
             yield
@@ -69,7 +73,7 @@ def ep(ep_path):
     return ep
 
 
-def test_ep_exception(ep, method_request):
+def test_ep_exception(ep, method_request, caplog):
     resp = method_request('probe', {'data': 'one'}, request_id=111)
     assert resp == {'id': 111, 'jsonrpc': '2.0', 'error': {'code': -32603, 'message': 'Internal error'}}
     assert ep.calls == {
@@ -112,3 +116,5 @@ def test_ep_exception(ep, method_request):
             ),
         ]
     }
+
+    assert f'RuntimeError: {unique_marker}' in caplog.text

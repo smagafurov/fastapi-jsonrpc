@@ -1,6 +1,7 @@
 import contextlib
 import contextvars
 import sys
+import uuid
 from collections import defaultdict
 from typing import Tuple
 
@@ -8,6 +9,9 @@ import pytest
 from fastapi import Body
 
 import fastapi_jsonrpc as jsonrpc
+
+
+unique_marker = str(uuid.uuid4())
 
 
 @pytest.fixture
@@ -59,7 +63,7 @@ def ep(ep_path):
     @ep.method(middlewares=[method_middleware])
     def probe_error(
     ) -> str:
-        raise RuntimeError('qwe')
+        raise RuntimeError(unique_marker)
 
     @ep.method(middlewares=[method_middleware])
     def probe_context_vars(
@@ -128,7 +132,7 @@ def test_single(ep, method_request):
     }
 
 
-def test_single_error(ep, method_request):
+def test_single_error(ep, method_request, caplog):
     resp = method_request('probe_error', {'data': 'one'}, request_id=111)
     assert resp == {'id': 111, 'jsonrpc': '2.0', 'error': {'code': -32603, 'message': 'Internal error'}}
     assert ep.calls == {
@@ -183,6 +187,8 @@ def test_single_error(ep, method_request):
             )
         ]
     }
+
+    assert f'RuntimeError: {unique_marker}' in caplog.text
 
 
 def test_batch(ep, json_request):
@@ -308,7 +314,7 @@ def test_batch(ep, json_request):
     }
 
 
-def test_batch_error(ep, json_request):
+def test_batch_error(ep, json_request, caplog):
     resp = json_request([
         {
             'id': 111,
@@ -429,6 +435,8 @@ def test_batch_error(ep, json_request):
             )
         ]
     }
+
+    assert f'RuntimeError: {unique_marker}' in caplog.text
 
 
 def test_context_vars(ep, method_request):
