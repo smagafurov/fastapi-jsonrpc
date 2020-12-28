@@ -83,9 +83,15 @@ example2.py
 
 .. code-block:: python
 
+    import logging
+    from contextlib import asynccontextmanager
+
     from pydantic import BaseModel, Field
     import fastapi_jsonrpc as jsonrpc
     from fastapi import Body, Header, Depends
+
+
+    logger = logging.getLogger(__name__)
 
 
     # database models
@@ -195,6 +201,17 @@ example2.py
         return account
 
 
+    # JSON-RPC middlewares
+
+    @asynccontextmanager
+    async def logging_middleware(ctx: jsonrpc.JsonRpcContext):
+        logger.info('Request: %r', ctx.raw_request)
+        try:
+            yield
+        finally:
+            logger.info('Response: %r', ctx.raw_response)
+
+
     # JSON-RPC entrypoint
 
     common_errors = [AccountNotFound, AuthError]
@@ -206,6 +223,7 @@ example2.py
         #    - header parameter 'user-auth-token'
         '/api/v1/jsonrpc',
         errors=common_errors,
+        middlewares=[logging_middleware],
         # this dependencies called once for whole json-rpc batch request
         dependencies=[Depends(get_auth_user)],
         # this dependencies called separately for every json-rpc request in batch request
