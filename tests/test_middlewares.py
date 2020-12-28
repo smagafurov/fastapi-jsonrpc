@@ -1,5 +1,6 @@
 import contextlib
 import contextvars
+import logging
 import sys
 import uuid
 from collections import defaultdict
@@ -12,6 +13,12 @@ import fastapi_jsonrpc as jsonrpc
 
 
 unique_marker = str(uuid.uuid4())
+unique_marker2 = str(uuid.uuid4())
+
+
+class TestError(jsonrpc.BaseError):
+    CODE = 33333
+    MESSAGE = "Test error"
 
 
 @pytest.fixture
@@ -20,6 +27,14 @@ def ep(ep_path):
 
     ep_middleware_var = contextvars.ContextVar('ep_middleware')
     method_middleware_var = contextvars.ContextVar('method_middleware')
+
+    @contextlib.asynccontextmanager
+    async def ep_handle_exception(_ctx: jsonrpc.JsonRpcContext):
+        try:
+            yield
+        except RuntimeError as exc:
+            logging.exception(str(exc), exc_info=exc)
+            raise TestError(unique_marker2)
 
     @contextlib.asynccontextmanager
     async def ep_middleware(ctx: jsonrpc.JsonRpcContext):
@@ -51,7 +66,7 @@ def ep(ep_path):
 
     ep = jsonrpc.Entrypoint(
         ep_path,
-        middlewares=[ep_middleware],
+        middlewares=[ep_handle_exception, ep_middleware],
     )
 
     @ep.method(middlewares=[method_middleware])
@@ -134,7 +149,11 @@ def test_single(ep, method_request):
 
 def test_single_error(ep, method_request, caplog):
     resp = method_request('probe_error', {'data': 'one'}, request_id=111)
-    assert resp == {'id': 111, 'jsonrpc': '2.0', 'error': {'code': -32603, 'message': 'Internal error'}}
+    assert resp == {
+        'id': 111, 'jsonrpc': '2.0', 'error': {
+            'code': 33333, 'data': unique_marker2, 'message': 'Test error',
+        }
+    }
     assert ep.calls == {
         111: [
             (
@@ -189,6 +208,7 @@ def test_single_error(ep, method_request, caplog):
     }
 
     assert f'RuntimeError: {unique_marker}' in caplog.text
+    assert caplog.text.count(f'RuntimeError: {unique_marker}') == 1
 
 
 def test_batch(ep, json_request):
@@ -330,8 +350,16 @@ def test_batch_error(ep, json_request, caplog):
         },
     ])
     assert resp == [
-        {'id': 111, 'jsonrpc': '2.0', 'error': {'code': -32603, 'message': 'Internal error'}},
-        {'id': 222, 'jsonrpc': '2.0', 'error': {'code': -32603, 'message': 'Internal error'}},
+        {
+            'id': 111, 'jsonrpc': '2.0', 'error': {
+                'code': 33333, 'data': unique_marker2, 'message': 'Test error',
+            }
+        },
+        {
+            'id': 222, 'jsonrpc': '2.0', 'error': {
+                'code': 33333, 'data': unique_marker2, 'message': 'Test error',
+            }
+        },
     ]
     assert ep.calls == {
         111: [
@@ -437,6 +465,7 @@ def test_batch_error(ep, json_request, caplog):
     }
 
     assert f'RuntimeError: {unique_marker}' in caplog.text
+    assert caplog.text.count(f'RuntimeError: {unique_marker}') == 2
 
 
 def test_context_vars(ep, method_request):

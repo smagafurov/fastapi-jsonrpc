@@ -6,7 +6,7 @@ from collections import ChainMap
 from contextlib import AsyncExitStack, AbstractAsyncContextManager, asynccontextmanager
 from json import JSONDecodeError
 from types import FunctionType, CoroutineType
-from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable
+from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable, Tuple
 
 # noinspection PyProtectedMember
 from pydantic import DictError
@@ -501,10 +501,16 @@ class JsonRpcContext:
         self.http_response: Response = http_response
         self._raw_response: Optional[dict] = None
         self.exception: Optional[Exception] = None
+        self.is_unhandled_exception: bool = False
         self.exit_stack: Optional[AsyncExitStack] = None
         self.jsonrpc_context_token: Optional[contextvars.Token] = None
 
-    def on_raw_response(self, raw_response: dict, exception: Optional[Exception] = None):
+    def on_raw_response(
+        self,
+        raw_response: dict,
+        exception: Optional[Exception] = None,
+        is_unhandled_exception: bool = False,
+    ):
         raw_response.pop('id', None)
         if isinstance(self.raw_request, dict) and 'id' in self.raw_request:
             raw_response['id'] = self.raw_request.get('id')
@@ -512,6 +518,7 @@ class JsonRpcContext:
             raw_response['id'] = None
         self._raw_response = raw_response
         self.exception = exception
+        self.is_unhandled_exception = is_unhandled_exception
 
     @property
     def raw_response(self) -> dict:
@@ -553,17 +560,21 @@ class JsonRpcContext:
         except Exception as exc:
             if exc is not self.exception:
                 try:
-                    resp = await self.entrypoint.handle_exception_to_resp(exc)
+                    resp, is_unhandled_exception = await self.entrypoint.handle_exception_to_resp(
+                        exc, log_unhandled_exception=False,
+                    )
                 except Exception as exc:
                     # HTTPException
                     self._raw_response = None
                     self.exception = exc
+                    self.is_unhandled_exception = True
                     raise
-                self.on_raw_response(resp, exc)
+                self.on_raw_response(resp, exc, is_unhandled_exception)
             if reraise:
                 raise
-            else:
-                logger.exception(str(exc), exc_info=exc)
+
+        if self.exception is not None and self.is_unhandled_exception:
+            logger.exception(str(self.exception), exc_info=self.exception)
 
     async def enter_middlewares(self, middlewares: Sequence['JsonRpcMiddleware']):
         for mw in middlewares:
@@ -683,8 +694,7 @@ class MethodRoute(APIRoute):
         try:
             body = await self.parse_body(http_request)
         except Exception as exc:
-            logger.exception(str(exc), exc_info=exc)
-            resp = await self.entrypoint.handle_exception_to_resp(exc)
+            resp, _ = await self.entrypoint.handle_exception_to_resp(exc)
             response = self.response_class(content=resp, background=background_tasks)
         else:
             try:
@@ -965,8 +975,7 @@ class EntrypointRoute(APIRoute):
         try:
             body = await self.parse_body(http_request)
         except Exception as exc:
-            logger.exception(str(exc), exc_info=exc)
-            resp = await self.entrypoint.handle_exception_to_resp(exc)
+            resp, _ = await self.entrypoint.handle_exception_to_resp(exc)
             response = self.response_class(content=resp, background=background_tasks)
         else:
             try:
@@ -1167,16 +1176,20 @@ class Entrypoint(APIRouter):
     async def handle_exception(self, exc):
         raise exc
 
-    async def handle_exception_to_resp(self, exc) -> dict:
+    async def handle_exception_to_resp(self, exc, log_unhandled_exception=True) -> Tuple[dict, bool]:
+        is_unhandled_exception = False
         try:
             resp = await self.handle_exception(exc)
         except BaseError as error:
             resp = error.get_resp()
         except HTTPException:
             raise
-        except Exception:  # noqa
+        except Exception as exc:
+            if log_unhandled_exception:
+                logger.exception(str(exc), exc_info=exc)
             resp = InternalError().get_resp()
-        return resp
+            is_unhandled_exception = True
+        return resp, is_unhandled_exception
 
     def bind_dependency_overrides_provider(self, value):
         for route in self.routes:

@@ -154,3 +154,4 @@ def test_ep_exception(ep, method_request, caplog):
     }
 
     assert f'RuntimeError: {unique_marker}' in caplog.text
+    assert caplog.text.count(f'RuntimeError: {unique_marker}') == 1
