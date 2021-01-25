@@ -351,7 +351,7 @@ def errors_responses(errors: Sequence[Type[BaseError]] = None):
 
 @component_name(f'_Request')
 class JsonRpcRequest(BaseModel):
-    jsonrpc: StrictStr = Field('2.0', const=True, example='2.0')
+    jsonrpc: StrictStr = Field('2.0', const=True, example='"2.0"')
     id: Union[StrictStr, int] = Field(None, example=0)
     method: StrictStr
     params: dict
@@ -471,7 +471,7 @@ def make_request_model(name, module, body_params: List[ModelField]):
         )
 
     class _Request(BaseModel):
-        jsonrpc: StrictStr = Field('2.0', const=True, example='2.0')
+        jsonrpc: StrictStr = Field('2.0', const=True, example='"2.0"')
         id: Union[StrictStr, int] = Field(None, example=0)
         method: StrictStr = Field(name, const=True, example=name)
 
