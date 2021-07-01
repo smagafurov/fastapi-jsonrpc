@@ -493,12 +493,14 @@ class JsonRpcContext:
         http_request: Request,
         background_tasks: BackgroundTasks,
         http_response: Response,
+        json_rpc_request_class: Type[JsonRpcRequest] = JsonRpcRequest
     ):
         self.entrypoint: Entrypoint = entrypoint
         self.raw_request: Any = raw_request
         self.http_request: Request = http_request
         self.background_tasks: BackgroundTasks = background_tasks
         self.http_response: Response = http_response
+        self.request_class: Type[JsonRpcRequest] = json_rpc_request_class
         self._raw_response: Optional[dict] = None
         self.exception: Optional[Exception] = None
         self.is_unhandled_exception: bool = False
@@ -531,7 +533,7 @@ class JsonRpcContext:
     @cached_property
     def request(self) -> JsonRpcRequest:
         try:
-            return JsonRpcRequest.validate(self.raw_request)
+            return self.request_class.validate(self.raw_request)
         except DictError:
             raise InvalidRequest(data={'errors': [{
                 'loc': (),
@@ -615,6 +617,7 @@ class MethodRoute(APIRoute):
         errors: Sequence[Type[BaseError]] = None,
         dependencies: Sequence[Depends] = None,
         response_class: Type[Response] = JSONResponse,
+        request_class: Type[JsonRpcRequest] = JsonRpcRequest,
         middlewares: Sequence[JsonRpcMiddleware] = None,
         **kwargs,
     ):
@@ -671,6 +674,7 @@ class MethodRoute(APIRoute):
         self.entrypoint = entrypoint
         self.middlewares = middlewares or []
         self.app = request_response(self.handle_http_request)
+        self.request_class = request_class
 
     async def parse_body(self, http_request) -> Any:
         try:
@@ -758,6 +762,7 @@ class MethodRoute(APIRoute):
             http_request=http_request,
             background_tasks=background_tasks,
             http_response=sub_response,
+            json_rpc_request_class=self.request_class,
         ) as ctx:
             await ctx.enter_middlewares(self.entrypoint.middlewares)
 
@@ -860,13 +865,14 @@ class EntrypointRoute(APIRoute):
         errors: Sequence[Type[BaseError]] = None,
         common_dependencies: Sequence[Depends] = None,
         response_class: Type[Response] = JSONResponse,
+        request_class: Type[JsonRpcRequest] = JsonRpcRequest,
         **kwargs,
     ):
         name = name or 'entrypoint'
 
         _, path_format, _ = compile_path(path)
 
-        _Request = JsonRpcRequest
+        _Request = request_class
 
         common_dependant = Dependant(path=path_format)
         if common_dependencies:
@@ -924,6 +930,8 @@ class EntrypointRoute(APIRoute):
         self.app = request_response(self.handle_http_request)
         self.entrypoint = entrypoint
         self.common_dependencies = common_dependencies
+        self.request_class = request_class
+
 
     async def solve_shared_dependencies(
         self,
@@ -1082,6 +1090,7 @@ class EntrypointRoute(APIRoute):
             http_request=http_request,
             background_tasks=background_tasks,
             http_response=sub_response,
+            json_rpc_request_class=self.request_class
         ) as ctx:
             await ctx.enter_middlewares(self.entrypoint.middlewares)
 
@@ -1138,6 +1147,7 @@ class Entrypoint(APIRouter):
         middlewares: Sequence[JsonRpcMiddleware] = None,
         scheduler_factory: Callable[..., Awaitable[aiojobs.Scheduler]] = aiojobs.create_scheduler,
         scheduler_kwargs: dict = None,
+        request_class: Type[JsonRpcRequest] = JsonRpcRequest,
         **kwargs,
     ) -> None:
         super().__init__(redirect_slashes=False)
@@ -1146,6 +1156,7 @@ class Entrypoint(APIRouter):
         self.middlewares = middlewares or []
         self.scheduler_factory = scheduler_factory
         self.scheduler_kwargs = scheduler_kwargs
+        self.request_class = request_class
         self.scheduler = None
         self.callee_module = inspect.getmodule(inspect.stack()[1][0]).__name__
         self.entrypoint_route = self.entrypoint_route_class(
@@ -1155,6 +1166,7 @@ class Entrypoint(APIRouter):
             errors=errors,
             dependencies=dependencies,
             common_dependencies=common_dependencies,
+            request_class=request_class,
             **kwargs,
         )
         self.routes.append(self.entrypoint_route)
@@ -1220,6 +1232,7 @@ class Entrypoint(APIRouter):
             self.entrypoint_route.path + '/' + name,
             func,
             name=name,
+            request_class=self.request_class,
             **kwargs,
         )
         self.routes.append(route)
