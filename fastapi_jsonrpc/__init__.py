@@ -92,6 +92,7 @@ def component_name(name: str, module: str = None):
     """OpenAPI components must be unique by name"""
     def decorator(obj):
         obj.__name__ = name
+        obj.__qualname__ = name
         if module is not None:
             obj.__module__ = module  # see: pydantic.schema.get_long_model_name
         key = (obj.__name__, obj.__module__)
