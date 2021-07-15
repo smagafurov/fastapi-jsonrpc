@@ -1,3 +1,4 @@
+import pytest
 from fastapi import Body
 from typing import List
 
@@ -545,3 +546,90 @@ def test_basic(ep, app, app_client):
             },
         },
     }
+
+
+@pytest.fixture
+def api_package(pytester):
+    """Create package with structure
+        api \
+            mobile.py
+            web.py
+
+    mobile.py and web.py has similar content except entrypoint path
+    """
+
+    # Re-use our infrastructure layer
+    pytester.copy_example('tests/conftest.py')
+
+    # Create api/web.py and api/mobile.py files with same methods
+    entrypoint_tpl = """
+from fastapi import Body
+from typing import List
+
+
+import fastapi_jsonrpc as jsonrpc
+
+api_v1 = jsonrpc.Entrypoint(
+    '{ep_path}',
+)
+
+@api_v1.method()
+def probe(
+    data: List[str] = Body(..., example=['111', '222']),
+    amount: int = Body(..., gt=5, example=10),
+) -> List[int]:
+    return [1, 2, 3]
+"""
+
+    api_dir = pytester.mkpydir('api')
+    mobile_py = api_dir.joinpath('mobile.py')
+    mobile_py.write_text(
+        entrypoint_tpl.format(ep_path='/api/v1/mobile/jsonrpc'),
+    )
+
+    web_py = api_dir.joinpath('web.py')
+    web_py.write_text(
+        entrypoint_tpl.format(ep_path='/api/v1/web/jsonrpc'),
+    )
+    return api_dir
+
+
+def test_component_name_isolated_by_their_path(pytester, api_package):
+    """Test we can mix methods with same names in one openapi.json schema
+    """
+
+    pytester.makepyfile('''
+import pytest
+import fastapi_jsonrpc as jsonrpc
+
+
+# override conftest.py `app` fixture
+@pytest.fixture
+def app():
+    from api.web import api_v1 as api_v1_web
+    from api.mobile import api_v1 as api_v1_mobile
+
+    app = jsonrpc.API()
+    app.bind_entrypoint(api_v1_web)
+    app.bind_entrypoint(api_v1_mobile)
+    return app
+
+
+def test_no_collide(app_client):
+    resp = app_client.get('/openapi.json')
+    schemas = resp.json()['components']['schemas']
+
+    for component_name in (
+        'api__mobile___Params[probe]',
+        'api__mobile___Request[probe]',
+        'api__mobile___Response[probe]',
+        'api__web___Params[probe]',
+        'api__web___Request[probe]',
+        'api__web___Response[probe]',
+    ):
+        assert component_name in schemas  
+''')
+
+    result = pytester.runpytest_inprocess()
+    print(result.stdout.str())
+    result.assert_outcomes(passed=1)

@@ -16,12 +16,13 @@ aiojobs = "^0.2.2"
 fastapi = ">0.55"
 
 [tool.poetry.dev-dependencies]
-uvicorn = "^0.8.6"
+uvicorn = "^0.14.0"
 pygments = "^2.4"
 rst_include = "^2.1.0"
-pytest = "^5.2.2"
+pytest = "^6.2"
 # python-dateutil 2.8.1 needs six but has no dependency
 six = "^1.15.0"
+requests = "^2.26.0"
 
 [tool.dephell.main]
 from = {format = "poetry", path = "pyproject.toml"}

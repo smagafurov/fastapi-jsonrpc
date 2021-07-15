@@ -13,6 +13,9 @@ if platform.system() == 'Darwin':
     socket.gethostbyname = lambda x: '127.0.0.1'
 
 
+pytest_plugins = 'pytester'
+
+
 @pytest.fixture
 def ep_path():
     return '/api/v1/jsonrpc'
