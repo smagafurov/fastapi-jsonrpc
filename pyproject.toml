@@ -16,7 +16,7 @@ aiojobs = "^0.2.2"
 fastapi = ">0.55"
 
 [tool.poetry.dev-dependencies]
-uvicorn = "^0.8.6"
+uvicorn = "^0.14.0"
 pygments = "^2.4"
 rst_include = "^2.1.0"
 pytest = "^6.2"
