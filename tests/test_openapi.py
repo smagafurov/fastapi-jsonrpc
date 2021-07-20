@@ -631,5 +631,4 @@ def test_no_collide(app_client):
 ''')
 
     result = pytester.runpytest_inprocess()
-    print(result.stdout.str())
     result.assert_outcomes(passed=1)
