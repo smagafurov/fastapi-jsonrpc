@@ -472,6 +472,35 @@ lib-log-utils = "*"
 pathlib3x = "*"
 
 [[package]]
+name = "sentry-sdk"
+version = "1.3.0"
+description = "Python client for Sentry (https://sentry.io)"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+certifi = "*"
+urllib3 = ">=1.10.0"
+
+[package.extras]
+aiohttp = ["aiohttp (>=3.5)"]
+beam = ["apache-beam (>=2.12)"]
+bottle = ["bottle (>=0.12.13)"]
+celery = ["celery (>=3)"]
+chalice = ["chalice (>=1.16.0)"]
+django = ["django (>=1.8)"]
+falcon = ["falcon (>=1.4)"]
+flask = ["flask (>=0.11)", "blinker (>=1.1)"]
+httpx = ["httpx (>=0.16.0)"]
+pure_eval = ["pure-eval", "executing", "asttokens"]
+pyspark = ["pyspark (>=2.4.4)"]
+rq = ["rq (>=0.6)"]
+sanic = ["sanic (>=0.8)"]
+sqlalchemy = ["sqlalchemy (>=1.2)"]
+tornado = ["tornado (>=5)"]
+
+[[package]]
 name = "six"
 version = "1.16.0"
 description = "Python 2 and 3 compatibility utilities"
@@ -572,7 +601,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.6"
-content-hash = "90db5b7f3374a512c90cce6fe2b1728b2eaa712eec8084bb18e2e3e7df804e6a"
+content-hash = "6c54909f8aa26e736b6335198fbe98a82cf35095d026ff006dfbc17d28d7745c"
 
 [metadata.files]
 aiohttp = [
@@ -867,6 +896,10 @@ rst-include = [
     {file = "rst_include-2.1.1-py3.8.egg", hash = "sha256:6abb3e9cf9a36f84291af9011dd17124a31ba68723dc8e37ae04cfca32836478"},
     {file = "rst_include-2.1.1-py3.9.egg", hash = "sha256:609a3f2a6bafeb8fbf15a605f19aacd4a52778c05e4418f14044d54456234101"},
     {file = "rst_include-2.1.1.tar.gz", hash = "sha256:cad2561d739175be7894a5c5b745c25bfab24f86341fbbaf2f1081a0deb1e909"},
+]
+sentry-sdk = [
+    {file = "sentry-sdk-1.3.0.tar.gz", hash = "sha256:5210a712dd57d88d225c1fc3fe3a3626fee493637bcd54e204826cf04b8d769c"},
+    {file = "sentry_sdk-1.3.0-py2.py3-none-any.whl", hash = "sha256:6864dcb6f7dec692635e5518c2a5c80010adf673c70340817f1a1b713d65bb41"},
 ]
 six = [
     {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},
