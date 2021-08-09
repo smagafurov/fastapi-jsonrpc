@@ -1,3 +1,9 @@
+|tests|
+
+.. |tests| image:: https://github.com/smagafurov/fastapi-jsonrpc/actions/workflows/tests.yml/badge.svg
+   :target: https://github.com/smagafurov/fastapi-jsonrpc/actions/workflows/tests.yml
+
+
 Description
 ===========
 
