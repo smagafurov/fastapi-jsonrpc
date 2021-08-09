@@ -5,11 +5,11 @@ name: Compatibility with latest fastapi & pydantic
 
 on:
   schedule:
-    - cron: '30 03 01 * *'  # Test each week
+    - cron: '30 03 */1 * *'  # Test each week
 
 jobs:
   tests:
-    name: test with Py${{ matrix.python-version }})
+    name: 'test with Py${{ matrix.python-version }} (fastapi: {{ matrix.fastapi-short}}; pydantic: {{ pydantic-short }})'
 
     runs-on: ubuntu-latest
     strategy:
@@ -36,11 +36,11 @@ jobs:
 
       - name: Install latest Pydantic
         if: ${{ matrix.pydantic-short == 'latest' }}
-        run: python -m install --upgrade pydantic
+        run: python -m pip install --upgrade pydantic
 
       - name: Install latest FastAPI
         if: ${{ matrix.fastapi-short == 'latest' }}
-        run: python -m install --upgrade fastapi
+        run: python -m pip install --upgrade fastapi
 
       - name: Test with pytest
         run: |
