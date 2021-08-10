@@ -9,7 +9,7 @@ on:
 
 jobs:
   tests:
-    name: 'test with Py${{ matrix.python-version }} (fastapi: {{ matrix.fastapi-short}}; pydantic: {{ pydantic-short }})'
+    name: test with Py${{ matrix.python-version }} (fastapi=={{ matrix.fastapi-short}}; pydantic=={{ pydantic-short }})
 
     runs-on: ubuntu-latest
     strategy:
