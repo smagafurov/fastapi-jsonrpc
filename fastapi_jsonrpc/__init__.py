@@ -704,7 +704,10 @@ class MethodRoute(APIRoute):
         self.entrypoint = entrypoint
         self.middlewares = middlewares or []
         self.app = request_response(self.handle_http_request)
+        self.result_model = result_model
+        self.errors = errors
         self.request_class = request_class
+        self.kwargs = kwargs
 
     async def parse_body(self, http_request) -> Any:
         try:
@@ -1292,9 +1295,46 @@ class API(FastAPI):
                     result['paths'][route.path][media_type]['responses'].pop('default', None)
         return result
 
-    def bind_entrypoint(self, ep: Entrypoint):
-        ep.bind_dependency_overrides_provider(self)
-        self.routes.extend(ep.routes)
+    def bind_entrypoint(self, ep: Entrypoint, add_to_existing_path: bool = False):
+        if add_to_existing_path:
+            entrypoint_routes = [route for route in self.routes if isinstance(route, EntrypointRoute)]
+            if not entrypoint_routes:
+                raise ValueError("An entrypoint should first be defined to be able to merge its methods with a new one")
+
+            same_path_entrypoints_routes = [route for route in entrypoint_routes if route.path == ep.entrypoint_route.path]
+            if entrypoint_routes and not same_path_entrypoints_routes:
+                raise ValueError("No entrypoint found with the same path")
+            if len(same_path_entrypoints_routes) > 1:
+                # Warns the user that some of its methods won't be accessible
+                logger.warning("Multiple entrypoints with the same path have (%s) been defined without using the add_to_existing_path option", len(same_path_entrypoints_routes))
+
+            existing_entrypoint_route = same_path_entrypoints_routes[0]
+            existing_entrypoint = existing_entrypoint_route.entrypoint
+
+            new_methods_routes = [route for route in ep.routes if isinstance(route, existing_entrypoint.method_route_class)]
+            rewritten_routes = []
+            for route in new_methods_routes:
+                rewritten_route = existing_entrypoint.method_route_class(
+                    existing_entrypoint,
+                    route.path,
+                    route.func,
+                    result_model=route.result_model,
+                    name=route.name,
+                    errors=route.errors,
+                    dependencies=route.dependencies,
+                    response_class=route.response_class,
+                    request_class=existing_entrypoint.request_class,
+                    middlewares=route.middlewares,
+                    **route.kwargs,
+                )
+                rewritten_routes.append(rewritten_route)
+                existing_entrypoint.routes.append(rewritten_route)
+
+            self.routes.extend(rewritten_routes)
+            existing_entrypoint.bind_dependency_overrides_provider(self)
+        else:
+            ep.bind_dependency_overrides_provider(self)
+            self.routes.extend(ep.routes)
         self.on_event('shutdown')(ep.shutdown)
 
 
