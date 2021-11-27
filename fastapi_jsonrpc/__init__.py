@@ -1179,6 +1179,7 @@ class Entrypoint(APIRouter):
         scheduler_factory: Callable[..., Awaitable[aiojobs.Scheduler]] = aiojobs.create_scheduler,
         scheduler_kwargs: dict = None,
         request_class: Type[JsonRpcRequest] = JsonRpcRequest,
+        log_handled_exceptions_resp: Optional[int] = None,
         **kwargs,
     ) -> None:
         super().__init__(redirect_slashes=False)
@@ -1188,6 +1189,7 @@ class Entrypoint(APIRouter):
         self.scheduler_factory = scheduler_factory
         self.scheduler_kwargs = scheduler_kwargs
         self.request_class = request_class
+        self.log_handled_exceptions_resp = log_handled_exceptions_resp
         self.scheduler = None
         self.callee_module = inspect.getmodule(inspect.stack()[1][0]).__name__
         self.entrypoint_route = self.entrypoint_route_class(
@@ -1225,6 +1227,8 @@ class Entrypoint(APIRouter):
             resp = await self.handle_exception(exc)
         except BaseError as error:
             resp = error.get_resp()
+            if self.log_handled_exceptions_resp is not None:
+                logger.log(self.log_handled_exceptions_resp, resp)
         except HTTPException:
             raise
         except Exception as exc:
