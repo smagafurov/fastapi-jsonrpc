@@ -147,7 +147,7 @@ def test_single(ep, method_request):
     }
 
 
-def test_single_error(ep, method_request, caplog):
+def test_single_error(ep, method_request, assert_log_errors):
     resp = method_request('probe_error', {'data': 'one'}, request_id=111)
     assert resp == {
         'id': 111, 'jsonrpc': '2.0', 'error': {
@@ -207,8 +207,7 @@ def test_single_error(ep, method_request, caplog):
         ]
     }
 
-    assert f'RuntimeError: {unique_marker}' in caplog.text
-    assert caplog.text.count(f'RuntimeError: {unique_marker}') == 1
+    assert_log_errors(unique_marker, pytest.raises(RuntimeError))
 
 
 def test_batch(ep, json_request):
@@ -334,7 +333,7 @@ def test_batch(ep, json_request):
     }
 
 
-def test_batch_error(ep, json_request, caplog):
+def test_batch_error(ep, json_request, assert_log_errors):
     resp = json_request([
         {
             'id': 111,
@@ -464,8 +463,10 @@ def test_batch_error(ep, json_request, caplog):
         ]
     }
 
-    assert f'RuntimeError: {unique_marker}' in caplog.text
-    assert caplog.text.count(f'RuntimeError: {unique_marker}') == 2
+    assert_log_errors(
+        unique_marker, pytest.raises(RuntimeError),
+        unique_marker, pytest.raises(RuntimeError),
+    )
 
 
 def test_context_vars(ep, method_request):
