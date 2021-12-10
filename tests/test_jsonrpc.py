@@ -73,7 +73,7 @@ def test_batch_notify(echo, raw_request):
         },
     ]))
     assert not resp.content
-    assert echo.history == ['data-111', 'data-222']
+    assert set(echo.history) == {'data-111', 'data-222'}
 
 
 def test_dict_error(echo, json_request):
@@ -282,7 +282,7 @@ def test_batch(echo, json_request):
         {'id': 'qwe', 'jsonrpc': '2.0', 'result': 'data-qwe'},
         {'id': 'method-not-found', 'jsonrpc': '2.0', 'error': {'code': -32601, 'message': 'Method not found'}},
     ]
-    assert echo.history == ['data-111', 'data-notify', 'data-qwe']
+    assert set(echo.history) == {'data-111', 'data-notify', 'data-qwe'}
 
 
 def test_empty_batch(echo, json_request):

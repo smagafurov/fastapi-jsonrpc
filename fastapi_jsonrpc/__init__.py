@@ -1075,13 +1075,7 @@ class EntrypointRoute(APIRoute):
                         shared_dependencies_error=shared_dependencies_error,
                     )
                 )
-
-                # TODO: https://github.com/aio-libs/aiojobs/issues/119
-                job._explicit = True
-                # noinspection PyProtectedMember
-                coro = job._do_wait(timeout=None)
-
-                job_list.append(coro)
+                job_list.append(job.wait())
         else:
             req = req_list[0]
             coro = self.handle_req_to_resp(
@@ -1093,9 +1087,7 @@ class EntrypointRoute(APIRoute):
 
         resp_list = []
 
-        for coro in job_list:
-            resp = await coro
-
+        for resp in await asyncio.gather(*job_list):
             # No response for successful notifications
             has_content = 'error' in resp or 'id' in resp
             if not has_content:
