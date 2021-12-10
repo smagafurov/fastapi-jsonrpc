@@ -82,11 +82,13 @@ def test_openapi(app_client):
                 'InternalError': {
                     'properties': {
                         'code': {
+                            'const': -32603,
                             'example': -32603,
                             'title': 'Code',
                             'type': 'integer',
                         },
                         'message': {
+                            'const': 'Internal error',
                             'example': 'Internal error',
                             'title': 'Message',
                             'type': 'string',
@@ -98,6 +100,7 @@ def test_openapi(app_client):
                 'InvalidParams': {
                     'properties': {
                         'code': {
+                            'const': -32602,
                             'example': -32602,
                             'title': 'Code',
                             'type': 'integer',
@@ -106,6 +109,7 @@ def test_openapi(app_client):
                             '$ref': '#/components/schemas/_ErrorData__Error_',
                         },
                         'message': {
+                            'const': 'Invalid params',
                             'example': 'Invalid params',
                             'title': 'Message',
                             'type': 'string',
@@ -117,6 +121,7 @@ def test_openapi(app_client):
                 'InvalidRequest': {
                     'properties': {
                         'code': {
+                            'const': -32600,
                             'example': -32600,
                             'title': 'Code',
                             'type': 'integer',
@@ -125,6 +130,7 @@ def test_openapi(app_client):
                             '$ref': '#/components/schemas/_ErrorData__Error_',
                         },
                         'message': {
+                            'const': 'Invalid Request',
                             'example': 'Invalid Request',
                             'title': 'Message',
                             'type': 'string',
@@ -136,11 +142,13 @@ def test_openapi(app_client):
                 'MethodNotFound': {
                     'properties': {
                         'code': {
+                            'const': -32601,
                             'example': -32601,
                             'title': 'Code',
                             'type': 'integer',
                         },
                         'message': {
+                            'const': 'Method not found',
                             'example': 'Method not found',
                             'title': 'Message',
                             'type': 'string',
@@ -152,11 +160,13 @@ def test_openapi(app_client):
                 'ParseError': {
                     'properties': {
                         'code': {
+                            'const': -32700,
                             'example': -32700,
                             'title': 'Code',
                             'type': 'integer',
                         },
                         'message': {
+                            'const': 'Parse error',
                             'example': 'Parse error',
                             'title': 'Message',
                             'type': 'string',
@@ -223,6 +233,7 @@ def test_openapi(app_client):
                             'title': 'Id',
                         },
                         'jsonrpc': {
+                            'const': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -251,6 +262,7 @@ def test_openapi(app_client):
                             'title': 'Id',
                         },
                         'jsonrpc': {
+                            'const': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -279,6 +291,7 @@ def test_openapi(app_client):
                             'title': 'Id',
                         },
                         'jsonrpc': {
+                            'const': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -307,6 +320,7 @@ def test_openapi(app_client):
                             'title': 'Id',
                         },
                         'jsonrpc': {
+                            'const': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -335,6 +349,7 @@ def test_openapi(app_client):
                             'title': 'Id',
                         },
                         'jsonrpc': {
+                            'const': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -384,6 +399,7 @@ def test_openapi(app_client):
                             'title': 'Id',
                         },
                         'jsonrpc': {
+                            'const': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -410,11 +426,13 @@ def test_openapi(app_client):
                             'title': 'Id',
                         },
                         'jsonrpc': {
+                            'const': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
                         },
                         'method': {
+                            'const': 'probe1',
                             'example': 'probe1',
                             'title': 'Method',
                             'type': 'string',
@@ -434,11 +452,13 @@ def test_openapi(app_client):
                             'title': 'Id',
                         },
                         'jsonrpc': {
+                            'const': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
                         },
                         'method': {
+                            'const': 'probe2',
                             'example': 'probe2',
                             'title': 'Method',
                             'type': 'string',
@@ -465,6 +485,7 @@ def test_openapi(app_client):
                             'title': 'Id',
                         },
                         'jsonrpc': {
+                            'const': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -487,6 +508,7 @@ def test_openapi(app_client):
                             'title': 'Id',
                         },
                         'jsonrpc': {
+                            'const': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -510,6 +532,7 @@ def test_openapi(app_client):
                             'title': 'Id',
                         },
                         'jsonrpc': {
+                            'const': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
