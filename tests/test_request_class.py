@@ -10,7 +10,6 @@ def ep(ep_path):
     class CustomJsonRpcRequest(JsonRpcRequest):
         extra_value: str
 
-
     ep = Entrypoint(
         ep_path,
         request_class=CustomJsonRpcRequest

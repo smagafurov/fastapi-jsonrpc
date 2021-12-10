@@ -575,7 +575,7 @@ class JsonRpcContext:
         except Exception as exc:
             if exc is not self.exception:
                 try:
-                    resp, is_unhandled_exception = await self.entrypoint.handle_exception_to_resp(
+                    resp, unhandled_exception = await self.entrypoint.handle_exception_to_resp(
                         exc, log_unhandled_exception=False,
                     )
                 except Exception as exc:
@@ -584,7 +584,11 @@ class JsonRpcContext:
                     self.exception = exc
                     self.is_unhandled_exception = True
                     raise
-                self.on_raw_response(resp, exc, is_unhandled_exception)
+                self.on_raw_response(
+                    raw_response=resp,
+                    exception=unhandled_exception or exc,
+                    is_unhandled_exception=unhandled_exception is not None,
+                )
             if reraise:
                 raise
 
@@ -1219,8 +1223,8 @@ class Entrypoint(APIRouter):
     async def handle_exception(self, exc):
         raise exc
 
-    async def handle_exception_to_resp(self, exc, log_unhandled_exception=True) -> Tuple[dict, bool]:
-        is_unhandled_exception = False
+    async def handle_exception_to_resp(self, exc, log_unhandled_exception=True) -> Tuple[dict, Optional[Exception]]:
+        unhandled_exception = None
         try:
             resp = await self.handle_exception(exc)
         except BaseError as error:
@@ -1231,8 +1235,8 @@ class Entrypoint(APIRouter):
             if log_unhandled_exception:
                 logger.exception(str(exc), exc_info=exc)
             resp = InternalError().get_resp()
-            is_unhandled_exception = True
-        return resp, is_unhandled_exception
+            unhandled_exception = exc
+        return resp, unhandled_exception
 
     def bind_dependency_overrides_provider(self, value):
         for route in self.routes:
