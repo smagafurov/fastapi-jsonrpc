@@ -16,6 +16,7 @@ aiojobs = ">0.2.2"
 fastapi = ">0.55"
 
 [tool.poetry.dev-dependencies]
+pip = "19.0.3"
 cerberus = "1.1"
 dephell = "0.7.3"
 mistune = "0.8.4"
