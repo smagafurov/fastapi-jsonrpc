@@ -285,12 +285,6 @@ Development
 
     https://github.com/sdispater/poetry#installation
 
-* Install dephell
-
-    .. code-block:: bash
-
-        pip install dephell
-
 * Install dependencies
 
     .. code-block:: bash

@@ -1,3 +1,9 @@
+|tests|
+
+.. |tests| image:: https://github.com/smagafurov/fastapi-jsonrpc/actions/workflows/tests.yml/badge.svg
+   :target: https://github.com/smagafurov/fastapi-jsonrpc/actions/workflows/tests.yml
+
+
 Description
 ===========
 
@@ -62,12 +68,6 @@ Development
 * Install poetry
 
     https://github.com/sdispater/poetry#installation
-
-* Install dephell
-
-    .. code-block:: bash
-
-        pip install dephell
 
 * Install dependencies
 

@@ -16,6 +16,9 @@ aiojobs = ">0.2.2"
 fastapi = ">0.55"
 
 [tool.poetry.dev-dependencies]
+cerberus = "1.1"
+dephell = "0.7.3"
+mistune = "0.8.4"
 uvicorn = "^0.14.0"
 pygments = "^2.4"
 rst_include = "^2.1.0"

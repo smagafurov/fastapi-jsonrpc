@@ -35,5 +35,5 @@ setup(
     packages=['fastapi_jsonrpc'],
     package_data={},
     install_requires=['aiojobs>0.2.2', 'fastapi>0.55'],
-    extras_require={'dev': ['pygments==2.*,>=2.4.0', 'pytest==6.*,>=6.2.0', 'requests==2.*,>=2.26.0', 'rst-include==2.*,>=2.1.0', 'sentry-sdk==1.*,>=1.3.0', 'six==1.*,>=1.15.0', 'uvicorn==0.*,>=0.14.0']},
+    extras_require={'dev': ['cerberus==1.1', 'dephell==0.7.3', 'mistune==0.8.4', 'pygments==2.*,>=2.4.0', 'pytest==6.*,>=6.2.0', 'requests==2.*,>=2.26.0', 'rst-include==2.*,>=2.1.0', 'sentry-sdk==1.*,>=1.3.0', 'six==1.*,>=1.15.0', 'uvicorn==0.*,>=0.14.0']},
 )
