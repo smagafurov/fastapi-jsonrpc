@@ -1326,4 +1326,4 @@ if __name__ == '__main__':
 
     app.bind_entrypoint(api_v1)
 
-    uvicorn.run(app, port=5000, debug=True, access_log=False)
+    uvicorn.run(app, port=5000, debug=True, access_log=False)  # noqa
