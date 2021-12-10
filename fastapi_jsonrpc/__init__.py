@@ -13,7 +13,7 @@ from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, A
 from pydantic import DictError
 from pydantic import StrictStr, ValidationError
 from pydantic import BaseModel, BaseConfig
-from pydantic.fields import ModelField, Field
+from pydantic.fields import ModelField, Field, Undefined
 # noinspection PyProtectedMember
 from pydantic.main import ModelMetaclass
 from fastapi.dependencies.models import Dependant
@@ -73,6 +73,8 @@ class Params(fastapi.params.Body):
         min_length: int = None,
         max_length: int = None,
         regex: str = None,
+        example: Any = Undefined,
+        examples: Optional[Dict[str, Any]] = None,
         **extra: Any,
     ):
         super().__init__(
@@ -89,6 +91,8 @@ class Params(fastapi.params.Body):
             min_length=min_length,
             max_length=max_length,
             regex=regex,
+            example=example,
+            examples=examples,
             **extra,
         )
 
