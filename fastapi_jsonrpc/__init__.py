@@ -469,6 +469,9 @@ def make_request_model(name, module, body_params: List[ModelField]):
         _JsonRpcRequestParams = ModelMetaclass.__new__(ModelMetaclass, '_JsonRpcRequestParams', (BaseModel,), {})
 
         for f in body_params:
+            example = f.field_info.example  # noqa
+            if example is not Undefined:
+                f.field_info.extra['example'] = jsonable_encoder(example)
             _JsonRpcRequestParams.__fields__[f.name] = f
 
         _JsonRpcRequestParams = component_name(f'_Params[{name}]', module)(_JsonRpcRequestParams)
