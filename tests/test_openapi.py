@@ -579,7 +579,7 @@ def api_package(pytester):
     """
 
     # Re-use our infrastructure layer
-    pytester.copy_example('fastapi-jsonrpc/tests/conftest.py')
+    pytester.copy_example('tests/conftest.py')
 
     # Create api/web.py and api/mobile.py files with same methods
     entrypoint_tpl = """
