@@ -1,5 +1,5 @@
 import asyncio
-import contextvars
+import contextvars  # noqa
 import inspect
 import logging
 import typing
@@ -9,13 +9,11 @@ from json import JSONDecodeError
 from types import FunctionType, CoroutineType
 from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable
 
-# noinspection PyProtectedMember
-from pydantic import DictError
+from pydantic import DictError  # noqa
 from pydantic import StrictStr, ValidationError
 from pydantic import BaseModel, BaseConfig
 from pydantic.fields import ModelField, Field, Undefined
-# noinspection PyProtectedMember
-from pydantic.main import ModelMetaclass
+from pydantic.main import ModelMetaclass  # noqa
 from fastapi.dependencies.models import Dependant
 from fastapi.encoders import jsonable_encoder
 from fastapi.params import Depends
