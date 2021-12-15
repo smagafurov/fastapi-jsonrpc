@@ -14,8 +14,8 @@ exclude = ["example1.py", "example2.py"]
 python = "^3.6.2"
 aiojobs = ">0.2.2"
 fastapi = ">0.55"
-pydantic = "^1.0.0"
-starlette = "^0.0.0"
+pydantic = ">0.0.0"
+starlette = ">0.0.0"
 
 [tool.poetry.dev-dependencies]
 pip = "19.0.3"
