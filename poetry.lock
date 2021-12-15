@@ -250,11 +250,11 @@ immutables = ">=0.9"
 [[package]]
 category = "main"
 description = "A backport of the dataclasses module for Python 3.6"
-marker = "python_version >= \"3.6\" and python_version < \"3.7\" or python_version < \"3.7\""
+marker = "python_version < \"3.7\""
 name = "dataclasses"
 optional = false
-python-versions = ">=3.6, <3.7"
-version = "0.8"
+python-versions = "*"
+version = "0.6"
 
 [[package]]
 category = "dev"
@@ -429,7 +429,7 @@ description = "FastAPI framework, high performance, easy to learn, fast to code,
 name = "fastapi"
 optional = false
 python-versions = ">=3.6.1"
-version = "0.70.0"
+version = "0.70.1"
 
 [package.dependencies]
 pydantic = ">=1.6.2,<1.7 || >1.7,<1.7.1 || >1.7.1,<1.7.2 || >1.7.2,<1.7.3 || >1.7.3,<1.8 || >1.8,<1.8.1 || >1.8.1,<2.0.0"
@@ -883,7 +883,7 @@ description = "Python client for Sentry (https://sentry.io)"
 name = "sentry-sdk"
 optional = false
 python-versions = "*"
-version = "1.5.0"
+version = "1.5.1"
 
 [package.dependencies]
 certifi = "*"
@@ -1052,14 +1052,10 @@ description = "Yet Another Terminal Spinner"
 name = "yaspin"
 optional = false
 python-versions = ">=3.6.2,<4.0.0"
-version = "2.1.0"
+version = "2.0.0"
 
 [package.dependencies]
 termcolor = ">=1.1.0,<2.0.0"
-
-[package.dependencies.dataclasses]
-python = ">=3.6,<3.7"
-version = ">=0.8,<0.9"
 
 [[package]]
 category = "dev"
@@ -1075,7 +1071,7 @@ docs = ["sphinx", "jaraco.packaging (>=8.2)", "rst.linker (>=1.9)"]
 testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-cov", "pytest-enabler (>=1.0.1)", "jaraco.itertools", "func-timeout", "pytest-black (>=0.3.7)", "pytest-mypy"]
 
 [metadata]
-content-hash = "3f92c91dfc0cf0b5d4899e60b45d4aad8c64f1bfb08af30b9afe1e9e649f383d"
+content-hash = "e3b11c03ad7b81187606ebf82b1a2e4a78d5f78a84e00a1478593cfd818881b6"
 python-versions = "^3.6.2"
 
 [metadata.files]
@@ -1232,8 +1228,8 @@ contextvars = [
     {file = "contextvars-2.4.tar.gz", hash = "sha256:f38c908aaa59c14335eeea12abea5f443646216c4e29380d7bf34d2018e2c39e"},
 ]
 dataclasses = [
-    {file = "dataclasses-0.8-py3-none-any.whl", hash = "sha256:0201d89fa866f68c8ebd9d08ee6ff50c0b255f8ec63a71c16fda7af82bb887bf"},
-    {file = "dataclasses-0.8.tar.gz", hash = "sha256:8479067f342acf957dc82ec415d355ab5edb7e7646b90dc6e2fd1d96ad084c97"},
+    {file = "dataclasses-0.6-py3-none-any.whl", hash = "sha256:454a69d788c7fda44efd71e259be79577822f5e3f53f029a22d08004e951dc9f"},
+    {file = "dataclasses-0.6.tar.gz", hash = "sha256:6988bd2b895eef432d562370bb707d540f32f7360ab13da45340101bc2307d84"},
 ]
 dephell = [
     {file = "dephell-0.7.3-py3-none-any.whl", hash = "sha256:edec641e003016742585a594a04f412c0db361df7953d058ca79168f4427db53"},
@@ -1288,8 +1284,8 @@ fake-winreg = [
     {file = "fake_winreg-1.5.6.tar.gz", hash = "sha256:4e4abbede859abcd8cc8e997fe86078c7359d62e42e41d785547e1a63cedd69f"},
 ]
 fastapi = [
-    {file = "fastapi-0.70.0-py3-none-any.whl", hash = "sha256:a36d5f2fad931aa3575c07a3472c784e81f3e664e3bb5c8b9c88d0ec1104f59c"},
-    {file = "fastapi-0.70.0.tar.gz", hash = "sha256:66da43cfe5185ea1df99552acffd201f1832c6b364e0f4136c0a99f933466ced"},
+    {file = "fastapi-0.70.1-py3-none-any.whl", hash = "sha256:5367226c7bcd7bfb2e17edaf225fd9a983095b1372281e9a3eb661336fb93748"},
+    {file = "fastapi-0.70.1.tar.gz", hash = "sha256:21d03979b5336375c66fa5d1f3126c6beca650d5d2166fbb78345a30d33c8d06"},
 ]
 frozenlist = [
     {file = "frozenlist-1.2.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:977a1438d0e0d96573fd679d291a1542097ea9f4918a8b6494b06610dfeefbf9"},
@@ -1753,8 +1749,8 @@ rst-include = [
     {file = "rst_include-2.1.1.tar.gz", hash = "sha256:cad2561d739175be7894a5c5b745c25bfab24f86341fbbaf2f1081a0deb1e909"},
 ]
 sentry-sdk = [
-    {file = "sentry-sdk-1.5.0.tar.gz", hash = "sha256:789a11a87ca02491896e121efdd64e8fd93327b69e8f2f7d42f03e2569648e88"},
-    {file = "sentry_sdk-1.5.0-py2.py3-none-any.whl", hash = "sha256:0db297ab32e095705c20f742c3a5dac62fe15c4318681884053d0898e5abb2f6"},
+    {file = "sentry-sdk-1.5.1.tar.gz", hash = "sha256:2a1757d6611e4bec7d672c2b7ef45afef79fed201d064f53994753303944f5a8"},
+    {file = "sentry_sdk-1.5.1-py2.py3-none-any.whl", hash = "sha256:e4cb107e305b2c1b919414775fa73a9997f996447417d22b98e7610ded1e9eb5"},
 ]
 shellingham = [
     {file = "shellingham-1.4.0-py2.py3-none-any.whl", hash = "sha256:536b67a0697f2e4af32ab176c00a50ac2899c5a05e0d8e2dadac8e58888283f9"},
@@ -1923,8 +1919,8 @@ yarl = [
     {file = "yarl-1.7.2.tar.gz", hash = "sha256:45399b46d60c253327a460e99856752009fcee5f5d3c80b2f7c0cae1c38d56dd"},
 ]
 yaspin = [
-    {file = "yaspin-2.1.0-py3-none-any.whl", hash = "sha256:d574cbfaf0a349df466c91f7f81b22460ae5ebb15ecb8bf9411d6049923aee8d"},
-    {file = "yaspin-2.1.0.tar.gz", hash = "sha256:c8d34eca9fda3f4dfbe59f57f3cf0f3641af3eefbf1544fbeb9b3bacf82c580a"},
+    {file = "yaspin-2.0.0-py3-none-any.whl", hash = "sha256:9da195db6630b76f0d37612f195dd7c325e280ad398dae4fcf30890a124ceb74"},
+    {file = "yaspin-2.0.0.tar.gz", hash = "sha256:0498039b3e110f53824417a9f59418a20843e8752b8b15c26bb81a659d4aec5c"},
 ]
 zipp = [
     {file = "zipp-3.6.0-py3-none-any.whl", hash = "sha256:9fe5ea21568a0a70e50f273397638d39b03353731e6cbbb3fd8502a33fec40bc"},
