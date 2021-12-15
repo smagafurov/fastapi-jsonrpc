@@ -7,7 +7,7 @@ from collections import ChainMap
 from contextlib import AsyncExitStack, AbstractAsyncContextManager, asynccontextmanager, contextmanager
 from json import JSONDecodeError
 from types import FunctionType, CoroutineType
-from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable, Tuple
+from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable
 
 # noinspection PyProtectedMember
 from pydantic import DictError
@@ -191,7 +191,7 @@ class BaseError(Exception):
     def get_default_description(cls):
         return f"[{cls.CODE}] {cls.MESSAGE}"
 
-    def get_resp(self):
+    def get_resp(self) -> dict:
         error = {
             'code': self.CODE,
             'message': self.MESSAGE,
@@ -527,15 +527,28 @@ class JsonRpcContext:
 
     def on_raw_response(
         self,
-        raw_response: dict,
-        exception: Optional[Exception] = None,
-        is_unhandled_exception: bool = False,
+        raw_response: Union[dict, Exception],
     ):
-        raw_response.pop('id', None)
-        if isinstance(self.raw_request, dict) and 'id' in self.raw_request:
-            raw_response['id'] = self.raw_request.get('id')
-        elif 'error' in raw_response:
-            raw_response['id'] = None
+        exception = None
+        is_unhandled_exception = False
+
+        if isinstance(raw_response, Exception):
+            exception = raw_response
+            if isinstance(exception, BaseError):
+                raw_response = exception.get_resp()
+            elif isinstance(exception, HTTPException):
+                raw_response = None
+            else:
+                raw_response = InternalError().get_resp()
+                is_unhandled_exception = True
+
+        if raw_response is not None:
+            raw_response.pop('id', None)
+            if isinstance(self.raw_request, dict) and 'id' in self.raw_request:
+                raw_response['id'] = self.raw_request.get('id')
+            elif 'error' in raw_response:
+                raw_response['id'] = None
+
         self._raw_response = raw_response
         self.exception = exception
         self.is_unhandled_exception = is_unhandled_exception
@@ -579,25 +592,16 @@ class JsonRpcContext:
     async def _handle_exception(self, reraise=True):
         try:
             yield
-        except Exception as exc:
-            if exc is not self.exception:
+        except Exception as exception:
+            if exception is not self.exception:
                 try:
-                    resp, unhandled_exception = await self.entrypoint.handle_exception_to_resp(
-                        exc, log_unhandled_exception=False,
-                    )
+                    resp = await self.entrypoint.handle_exception(exception)
                 except Exception as exc:
-                    # HTTPException
-                    self._raw_response = None
-                    self.exception = exc
-                    self.is_unhandled_exception = True
-                    raise
-                self.on_raw_response(
-                    raw_response=resp,
-                    exception=unhandled_exception or exc,
-                    is_unhandled_exception=unhandled_exception is not None,
-                )
-            if reraise:
-                raise
+                    self.on_raw_response(exc)
+                else:
+                    self.on_raw_response(resp)
+            if self.exception is not None and (reraise or isinstance(self.exception, HTTPException)):
+                raise self.exception
 
         if self.exception is not None and self.is_unhandled_exception:
             logger.exception(str(self.exception), exc_info=self.exception)
@@ -739,7 +743,7 @@ class MethodRoute(APIRoute):
         try:
             body = await self.parse_body(http_request)
         except Exception as exc:
-            resp, _ = await self.entrypoint.handle_exception_to_resp(exc)
+            resp = await self.entrypoint.handle_exception_to_resp(exc)
             response = self.response_class(content=resp, background=background_tasks)
         else:
             try:
@@ -1024,7 +1028,7 @@ class EntrypointRoute(APIRoute):
         try:
             body = await self.parse_body(http_request)
         except Exception as exc:
-            resp, _ = await self.entrypoint.handle_exception_to_resp(exc)
+            resp = await self.entrypoint.handle_exception_to_resp(exc)
             response = self.response_class(content=resp, background=background_tasks)
         else:
             try:
@@ -1219,11 +1223,10 @@ class Entrypoint(APIRouter):
         self.scheduler = await self.scheduler_factory(**(self.scheduler_kwargs or {}))
         return self.scheduler
 
-    async def handle_exception(self, exc):
+    async def handle_exception(self, exc) -> dict:
         raise exc
 
-    async def handle_exception_to_resp(self, exc, log_unhandled_exception=True) -> Tuple[dict, Optional[Exception]]:
-        unhandled_exception = None
+    async def handle_exception_to_resp(self, exc) -> dict:
         try:
             resp = await self.handle_exception(exc)
         except BaseError as error:
@@ -1231,11 +1234,9 @@ class Entrypoint(APIRouter):
         except HTTPException:
             raise
         except Exception as exc:
-            if log_unhandled_exception:
-                logger.exception(str(exc), exc_info=exc)
+            logger.exception(str(exc), exc_info=exc)
             resp = InternalError().get_resp()
-            unhandled_exception = exc
-        return resp, unhandled_exception
+        return resp
 
     def bind_dependency_overrides_provider(self, value):
         for route in self.routes:
