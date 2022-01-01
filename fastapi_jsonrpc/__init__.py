@@ -1254,7 +1254,7 @@ class Entrypoint(APIRouter):
 
     def add_method_route(
         self,
-        func: FunctionType,
+        func: Union[FunctionType, CoroutineType],
         *,
         name: str = None,
         **kwargs,
@@ -1274,7 +1274,7 @@ class Entrypoint(APIRouter):
         self,
         **kwargs,
     ) -> Callable:
-        def decorator(func: FunctionType) -> Callable:
+        def decorator(func: Union[FunctionType, CoroutineType]) -> Callable:
             self.add_method_route(
                 func,
                 **kwargs,
