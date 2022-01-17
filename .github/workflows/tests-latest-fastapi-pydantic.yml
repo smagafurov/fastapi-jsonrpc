@@ -17,7 +17,7 @@ jobs:
         fastapi-short: [default, latest]
         pydantic-short: [default, latest]
 
-    name: test with Py${{ matrix.python-version }} (fastapi=={{ matrix.fastapi-short }}; pydantic=={{ matrix.pydantic-short }})
+    name: test with Py${{ matrix.python-version }} (fastapi==${{ matrix.fastapi-short }}; pydantic==${{ matrix.pydantic-short }})
 
     steps:
       - name: Checkout changes
