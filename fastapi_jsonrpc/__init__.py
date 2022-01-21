@@ -720,6 +720,16 @@ class MethodRoute(APIRoute):
         self.request_class = request_class
         self.errors = errors or []
 
+    def __hash__(self):
+        return hash(self.path)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, MethodRoute)
+            and self.path == other.path
+            and self.func == other.func
+        )
+
     async def parse_body(self, http_request) -> Any:
         try:
             req = await http_request.json()
@@ -978,6 +988,15 @@ class EntrypointRoute(APIRoute):
         self.request_class = request_class
         self.errors = errors or []
 
+    def __hash__(self):
+        return hash(self.path)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, EntrypointRoute)
+            and self.path == other.path
+        )
+
     async def solve_shared_dependencies(
         self,
         http_request: Request,
@@ -1208,6 +1227,15 @@ class Entrypoint(APIRouter):
             **kwargs,
         )
         self.routes.append(self.entrypoint_route)
+
+    def __hash__(self):
+        return hash(self.entrypoint_route.path)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, Entrypoint)
+            and self.routes == other.routes
+        )
 
     @property
     def common_dependencies(self):
