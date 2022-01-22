@@ -657,7 +657,7 @@ class MethodRoute(APIRoute):
         *,
         result_model: Type[Any] = None,
         name: str = None,
-        errors: Sequence[Type[BaseError]] = None,
+        errors: List[Type[BaseError]] = None,
         dependencies: Sequence[Depends] = None,
         response_class: Type[Response] = JSONResponse,
         request_class: Type[JsonRpcRequest] = JsonRpcRequest,
@@ -718,6 +718,17 @@ class MethodRoute(APIRoute):
         self.middlewares = middlewares or []
         self.app = request_response(self.handle_http_request)
         self.request_class = request_class
+        self.errors = errors or []
+
+    def __hash__(self):
+        return hash(self.path)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, MethodRoute)
+            and self.path == other.path
+            and self.func == other.func
+        )
 
     async def parse_body(self, http_request) -> Any:
         try:
@@ -906,7 +917,7 @@ class EntrypointRoute(APIRoute):
         path: str,
         *,
         name: str = None,
-        errors: Sequence[Type[BaseError]] = None,
+        errors: List[Type[BaseError]] = None,
         common_dependencies: Sequence[Depends] = None,
         response_class: Type[Response] = JSONResponse,
         request_class: Type[JsonRpcRequest] = JsonRpcRequest,
@@ -975,6 +986,16 @@ class EntrypointRoute(APIRoute):
         self.entrypoint = entrypoint
         self.common_dependencies = common_dependencies
         self.request_class = request_class
+        self.errors = errors or []
+
+    def __hash__(self):
+        return hash(self.path)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, EntrypointRoute)
+            and self.path == other.path
+        )
 
     async def solve_shared_dependencies(
         self,
@@ -1168,7 +1189,7 @@ class Entrypoint(APIRouter):
     method_route_class = MethodRoute
     entrypoint_route_class = EntrypointRoute
 
-    default_errors: Sequence[Type[BaseError]] = [
+    default_errors: List[Type[BaseError]] = [
         InvalidParams, MethodNotFound, ParseError, InvalidRequest, InternalError,
     ]
 
@@ -1177,7 +1198,7 @@ class Entrypoint(APIRouter):
         path: str,
         *,
         name: str = None,
-        errors: Sequence[Type[BaseError]] = None,
+        errors: List[Type[BaseError]] = None,
         dependencies: Sequence[Depends] = None,
         common_dependencies: Sequence[Depends] = None,
         middlewares: Sequence[JsonRpcMiddleware] = None,
@@ -1188,7 +1209,7 @@ class Entrypoint(APIRouter):
     ) -> None:
         super().__init__(redirect_slashes=False)
         if errors is None:
-            errors = self.default_errors
+            errors = list(self.default_errors)
         self.middlewares = middlewares or []
         self.scheduler_factory = scheduler_factory
         self.scheduler_kwargs = scheduler_kwargs
@@ -1206,6 +1227,15 @@ class Entrypoint(APIRouter):
             **kwargs,
         )
         self.routes.append(self.entrypoint_route)
+
+    def __hash__(self):
+        return hash(self.entrypoint_route.path)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, Entrypoint)
+            and self.routes == other.routes
+        )
 
     @property
     def common_dependencies(self):
