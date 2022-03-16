@@ -4,9 +4,10 @@ import inspect
 import logging
 import typing
 from collections import ChainMap
+from collections.abc import Coroutine
 from contextlib import AsyncExitStack, AbstractAsyncContextManager, asynccontextmanager, contextmanager
 from json import JSONDecodeError
-from types import FunctionType, CoroutineType
+from types import FunctionType
 from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable
 
 from pydantic import DictError  # noqa
@@ -653,7 +654,7 @@ class MethodRoute(APIRoute):
         self,
         entrypoint: 'Entrypoint',
         path: str,
-        func: Union[FunctionType, CoroutineType],
+        func: Union[FunctionType, Coroutine],
         *,
         result_model: Type[Any] = None,
         name: str = None,
@@ -1284,7 +1285,7 @@ class Entrypoint(APIRouter):
 
     def add_method_route(
         self,
-        func: Union[FunctionType, CoroutineType],
+        func: Union[FunctionType, Coroutine],
         *,
         name: str = None,
         **kwargs,
@@ -1304,7 +1305,7 @@ class Entrypoint(APIRouter):
         self,
         **kwargs,
     ) -> Callable:
-        def decorator(func: Union[FunctionType, CoroutineType]) -> Callable:
+        def decorator(func: Union[FunctionType, Coroutine]) -> Callable:
             self.add_method_route(
                 func,
                 **kwargs,
