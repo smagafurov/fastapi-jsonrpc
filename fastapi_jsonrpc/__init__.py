@@ -741,14 +741,9 @@ class MethodRoute(APIRoute):
     async def handle_http_request(self, http_request: Request):
         background_tasks = BackgroundTasks()
 
-        # noinspection PyTypeChecker
-        sub_response = Response(
-            content=None,
-            status_code=None,
-            headers=None,
-            media_type=None,
-            background=None,
-        )
+        sub_response = Response()
+        del sub_response.headers["content-length"]
+        sub_response.status_code = None  # type: ignore
 
         try:
             body = await self.parse_body(http_request)
@@ -1036,14 +1031,9 @@ class EntrypointRoute(APIRoute):
     async def handle_http_request(self, http_request: Request):
         background_tasks = BackgroundTasks()
 
-        # noinspection PyTypeChecker
-        sub_response = Response(
-            content=None,
-            status_code=None,
-            headers=None,
-            media_type=None,
-            background=None,
-        )
+        sub_response = Response()
+        del sub_response.headers["content-length"]
+        sub_response.status_code = None  # type: ignore
 
         try:
             body = await self.parse_body(http_request)
