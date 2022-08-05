@@ -311,6 +311,9 @@ Development
     .. code-block:: bash
 
         poetry version patch
+        poetry version minor
+        poetry version major
+
         dephell deps convert
 
 * Publish to pypi
