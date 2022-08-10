@@ -4,6 +4,7 @@ from typing import List
 
 
 def test_basic(ep, app, app_client):
+    # noinspection PyUnusedLocal
     @ep.method()
     def probe(
         data: List[str] = Body(..., example=['111', '222']),
@@ -579,7 +580,10 @@ def api_package(pytester):
     """
 
     # Re-use our infrastructure layer
-    pytester.copy_example('tests/conftest.py')
+    try:
+        pytester.copy_example('tests/conftest.py')
+    except LookupError:
+        pytester.copy_example('fastapi-jsonrpc/tests/conftest.py')
 
     # Create api/web.py and api/mobile.py files with same methods
     entrypoint_tpl = """
