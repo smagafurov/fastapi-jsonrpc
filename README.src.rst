@@ -88,7 +88,6 @@ Development
     .. code-block:: bash
 
         poetry update
-        dephell deps convert
 
 * Bump version
 
@@ -97,8 +96,6 @@ Development
         poetry version patch
         poetry version minor
         poetry version major
-
-        dephell deps convert
 
 * Publish to pypi
 
