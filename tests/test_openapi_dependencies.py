@@ -49,21 +49,23 @@ def ep(ep_path):
     return ep
 
 
-def test_basic(app_client):
+def test_basic(app_client, openapi_compatible):
     resp = app_client.get('/openapi.json')
-    assert resp.json() == {
+    assert resp.json() == openapi_compatible({
         'components': {
             'schemas': {
                 'InternalError': {
                     'properties': {
                         'code': {
                             'const': -32603,
+                            'default': -32603,
                             'example': -32603,
                             'title': 'Code',
                             'type': 'integer',
                         },
                         'message': {
                             'const': 'Internal error',
+                            'default': 'Internal error',
                             'example': 'Internal error',
                             'title': 'Message',
                             'type': 'string',
@@ -76,6 +78,7 @@ def test_basic(app_client):
                     'properties': {
                         'code': {
                             'const': -32602,
+                            'default': -32602,
                             'example': -32602,
                             'title': 'Code',
                             'type': 'integer',
@@ -85,6 +88,7 @@ def test_basic(app_client):
                         },
                         'message': {
                             'const': 'Invalid params',
+                            'default': 'Invalid params',
                             'example': 'Invalid params',
                             'title': 'Message',
                             'type': 'string',
@@ -97,6 +101,7 @@ def test_basic(app_client):
                     'properties': {
                         'code': {
                             'const': -32600,
+                            'default': -32600,
                             'example': -32600,
                             'title': 'Code',
                             'type': 'integer',
@@ -106,6 +111,7 @@ def test_basic(app_client):
                         },
                         'message': {
                             'const': 'Invalid Request',
+                            'default': 'Invalid Request',
                             'example': 'Invalid Request',
                             'title': 'Message',
                             'type': 'string',
@@ -118,12 +124,14 @@ def test_basic(app_client):
                     'properties': {
                         'code': {
                             'const': -32601,
+                            'default': -32601,
                             'example': -32601,
                             'title': 'Code',
                             'type': 'integer',
                         },
                         'message': {
                             'const': 'Method not found',
+                            'default': 'Method not found',
                             'example': 'Method not found',
                             'title': 'Message',
                             'type': 'string',
@@ -136,12 +144,14 @@ def test_basic(app_client):
                     'properties': {
                         'code': {
                             'const': -32700,
+                            'default': -32700,
                             'example': -32700,
                             'title': 'Code',
                             'type': 'integer',
                         },
                         'message': {
                             'const': 'Parse error',
+                            'default': 'Parse error',
                             'example': 'Parse error',
                             'title': 'Message',
                             'type': 'string',
@@ -209,6 +219,7 @@ def test_basic(app_client):
                         },
                         'jsonrpc': {
                             'const': '2.0',
+                            'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -238,6 +249,7 @@ def test_basic(app_client):
                         },
                         'jsonrpc': {
                             'const': '2.0',
+                            'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -267,6 +279,7 @@ def test_basic(app_client):
                         },
                         'jsonrpc': {
                             'const': '2.0',
+                            'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -296,6 +309,7 @@ def test_basic(app_client):
                         },
                         'jsonrpc': {
                             'const': '2.0',
+                            'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -325,6 +339,7 @@ def test_basic(app_client):
                         },
                         'jsonrpc': {
                             'const': '2.0',
+                            'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -389,12 +404,14 @@ def test_basic(app_client):
                         },
                         'jsonrpc': {
                             'const': '2.0',
+                            'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
                         },
                         'method': {
                             'const': 'entrypoint',
+                            'default': 'entrypoint',
                             'example': 'entrypoint',
                             'title': 'Method',
                             'type': 'string',
@@ -415,12 +432,14 @@ def test_basic(app_client):
                         },
                         'jsonrpc': {
                             'const': '2.0',
+                            'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
                         },
                         'method': {
                             'const': 'probe2',
+                            'default': 'probe2',
                             'example': 'probe2',
                             'title': 'Method',
                             'type': 'string',
@@ -448,12 +467,14 @@ def test_basic(app_client):
                         },
                         'jsonrpc': {
                             'const': '2.0',
+                            'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
                         },
                         'method': {
                             'const': 'probe',
+                            'default': 'probe',
                             'example': 'probe',
                             'title': 'Method',
                             'type': 'string',
@@ -483,6 +504,7 @@ def test_basic(app_client):
                         },
                         'jsonrpc': {
                             'const': '2.0',
+                            'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -506,6 +528,7 @@ def test_basic(app_client):
                         },
                         'jsonrpc': {
                             'const': '2.0',
+                            'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -536,6 +559,7 @@ def test_basic(app_client):
                         },
                         'jsonrpc': {
                             'const': '2.0',
+                            'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -702,4 +726,4 @@ def test_basic(app_client):
                 },
             },
         },
-    }
+    })

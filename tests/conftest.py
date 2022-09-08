@@ -2,6 +2,8 @@ import logging
 import platform
 from json import dumps as json_dumps
 
+import packaging.version
+import pydantic
 import pytest
 from _pytest.python_api import RaisesContext
 from starlette.testclient import TestClient
@@ -123,3 +125,19 @@ def method_request(json_request, add_path_postfix):
             'params': params,
         }, path_postfix=path_postfix)
     return requester
+
+
+@pytest.fixture
+def openapi_compatible():
+    if packaging.version.parse(pydantic.VERSION) >= packaging.version.parse("1.10.0"):
+        def _openapi_compatible(value: dict):
+            return value
+    else:
+        def _openapi_compatible(obj: dict):
+            for k, v in obj.items():
+                if isinstance(v, dict):
+                    obj[k] = _openapi_compatible(obj[k])
+            if 'const' in obj and 'default' in obj:
+                del obj['default']
+            return obj
+    return _openapi_compatible
