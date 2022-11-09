@@ -14,7 +14,7 @@ aiohttp = ["aiohttp (>=3.8.0)"]
 
 [[package]]
 name = "anyio"
-version = "3.6.1"
+version = "3.6.2"
 description = "High level compatibility layer for multiple asynchronous event loop implementations"
 category = "main"
 optional = false
@@ -30,7 +30,7 @@ typing-extensions = {version = "*", markers = "python_version < \"3.8\""}
 [package.extras]
 doc = ["packaging", "sphinx-rtd-theme", "sphinx-autodoc-typehints (>=1.2.0)"]
 test = ["coverage[toml] (>=4.5)", "hypothesis (>=4.0)", "pytest (>=7.0)", "pytest-mock (>=3.6.1)", "trustme", "contextlib2", "uvloop (<0.15)", "mock (>=4)", "uvloop (>=0.15)"]
-trio = ["trio (>=0.16)"]
+trio = ["trio (>=0.16,<0.22)"]
 
 [[package]]
 name = "asgiref"
@@ -81,7 +81,7 @@ tests_no_zope = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>
 
 [[package]]
 name = "certifi"
-version = "2022.6.15"
+version = "2022.9.24"
 description = "Python package for providing Mozilla's CA Bundle."
 category = "dev"
 optional = false
@@ -187,7 +187,7 @@ wrapt = "*"
 
 [[package]]
 name = "fastapi"
-version = "0.79.1"
+version = "0.83.0"
 description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
 category = "main"
 optional = false
@@ -199,9 +199,9 @@ starlette = "0.19.1"
 
 [package.extras]
 all = ["requests (>=2.24.0,<3.0.0)", "jinja2 (>=2.11.2,<4.0.0)", "python-multipart (>=0.0.5,<0.0.6)", "itsdangerous (>=1.1.0,<3.0.0)", "pyyaml (>=5.3.1,<7.0.0)", "ujson (>=4.0.1,!=4.0.2,!=4.1.0,!=4.2.0,!=4.3.0,!=5.0.0,!=5.1.0,<6.0.0)", "orjson (>=3.2.1,<4.0.0)", "email_validator (>=1.1.1,<2.0.0)", "uvicorn[standard] (>=0.12.0,<0.18.0)"]
-dev = ["python-jose[cryptography] (>=3.3.0,<4.0.0)", "passlib[bcrypt] (>=1.7.2,<2.0.0)", "autoflake (>=1.4.0,<2.0.0)", "flake8 (>=3.8.3,<4.0.0)", "uvicorn[standard] (>=0.12.0,<0.18.0)", "pre-commit (>=2.17.0,<3.0.0)"]
+dev = ["python-jose[cryptography] (>=3.3.0,<4.0.0)", "passlib[bcrypt] (>=1.7.2,<2.0.0)", "autoflake (>=1.4.0,<2.0.0)", "flake8 (>=3.8.3,<6.0.0)", "uvicorn[standard] (>=0.12.0,<0.18.0)", "pre-commit (>=2.17.0,<3.0.0)"]
 doc = ["mkdocs (>=1.1.2,<2.0.0)", "mkdocs-material (>=8.1.4,<9.0.0)", "mdx-include (>=1.4.1,<2.0.0)", "mkdocs-markdownextradata-plugin (>=0.1.7,<0.3.0)", "typer (>=0.4.1,<0.5.0)", "pyyaml (>=5.3.1,<7.0.0)"]
-test = ["pytest (>=6.2.4,<7.0.0)", "pytest-cov (>=2.12.0,<4.0.0)", "mypy (==0.910)", "flake8 (>=3.8.3,<4.0.0)", "black (==22.3.0)", "isort (>=5.0.6,<6.0.0)", "requests (>=2.24.0,<3.0.0)", "httpx (>=0.14.0,<0.19.0)", "email_validator (>=1.1.1,<2.0.0)", "sqlalchemy (>=1.3.18,<1.5.0)", "peewee (>=3.13.3,<4.0.0)", "databases[sqlite] (>=0.3.2,<0.6.0)", "orjson (>=3.2.1,<4.0.0)", "ujson (>=4.0.1,!=4.0.2,!=4.1.0,!=4.2.0,!=4.3.0,!=5.0.0,!=5.1.0,<6.0.0)", "python-multipart (>=0.0.5,<0.0.6)", "flask (>=1.1.2,<3.0.0)", "anyio[trio] (>=3.2.1,<4.0.0)", "types-ujson (==4.2.1)", "types-orjson (==3.6.2)", "types-dataclasses (==0.6.5)"]
+test = ["pytest (>=6.2.4,<7.0.0)", "pytest-cov (>=2.12.0,<4.0.0)", "mypy (==0.910)", "flake8 (>=3.8.3,<6.0.0)", "black (==22.3.0)", "isort (>=5.0.6,<6.0.0)", "requests (>=2.24.0,<3.0.0)", "httpx (>=0.14.0,<0.19.0)", "email_validator (>=1.1.1,<2.0.0)", "sqlalchemy (>=1.3.18,<1.5.0)", "peewee (>=3.13.3,<4.0.0)", "databases[sqlite] (>=0.3.2,<0.6.0)", "orjson (>=3.2.1,<4.0.0)", "ujson (>=4.0.1,!=4.0.2,!=4.1.0,!=4.2.0,!=4.3.0,!=5.0.0,!=5.1.0,<6.0.0)", "python-multipart (>=0.0.5,<0.0.6)", "flask (>=1.1.2,<3.0.0)", "anyio[trio] (>=3.2.1,<4.0.0)", "types-ujson (==4.2.1)", "types-orjson (==3.6.2)", "types-dataclasses (==0.6.5)"]
 
 [[package]]
 name = "h11"
@@ -229,7 +229,7 @@ pyreadline3 = {version = "*", markers = "sys_platform == \"win32\" and python_ve
 
 [[package]]
 name = "idna"
-version = "3.3"
+version = "3.4"
 description = "Internationalized Domain Names in Applications (IDNA)"
 category = "main"
 optional = false
@@ -237,7 +237,7 @@ python-versions = ">=3.5"
 
 [[package]]
 name = "immutables"
-version = "0.18"
+version = "0.19"
 description = "Immutable Collections"
 category = "main"
 optional = false
@@ -247,7 +247,7 @@ python-versions = ">=3.6"
 typing-extensions = {version = ">=3.7.4.3", markers = "python_version < \"3.8\""}
 
 [package.extras]
-test = ["flake8 (>=3.8.4,<3.9.0)", "pycodestyle (>=2.6.0,<2.7.0)", "mypy (==0.942)", "pytest (>=6.2.4,<6.3.0)"]
+test = ["flake8 (>=5.0.4,<5.1.0)", "pycodestyle (>=2.9.1,<2.10.0)", "mypy (==0.971)", "pytest (>=6.2.4,<6.3.0)"]
 
 [[package]]
 name = "importlib-metadata"
@@ -512,7 +512,7 @@ pathlib3x = "*"
 
 [[package]]
 name = "sentry-sdk"
-version = "1.9.8"
+version = "1.10.1"
 description = "Python client for Sentry (https://sentry.io)"
 category = "dev"
 optional = false
@@ -638,14 +638,17 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.6.2"
-content-hash = "cb7fbc7398de78af59cef3b47a77f4ed68ce0b0596859fab1a41bbabb7877a5c"
+content-hash = "61365d20d2eb3ad7a92a7c4667dd0efb311ade905b2705547aa3df9527aa770c"
 
 [metadata.files]
 aiojobs = [
     {file = "aiojobs-1.0.0-py3-none-any.whl", hash = "sha256:86bd70777df7c8140be9bc597181d4db0d88a6449f4e4578169f98b6df24e805"},
     {file = "aiojobs-1.0.0.tar.gz", hash = "sha256:5097580bb73d838e3f80e49d6a81d8e5f1dfc22fc6e75a44383cb2164daea8ea"},
 ]
-anyio = []
+anyio = [
+    {file = "anyio-3.6.2-py3-none-any.whl", hash = "sha256:fbbe32bd270d2a2ef3ed1c5d45041250284e31fc0a4df4a5a6071842051a51e3"},
+    {file = "anyio-3.6.2.tar.gz", hash = "sha256:25ea0d673ae30af41a0c442f81cf3b38c7e79fdc7b60335a4c14e05eb0947421"},
+]
 asgiref = [
     {file = "asgiref-3.4.1-py3-none-any.whl", hash = "sha256:ffc141aa908e6f175673e7b1b3b7af4fdb0ecb738fc5c8b88f69f055c2415214"},
     {file = "asgiref-3.4.1.tar.gz", hash = "sha256:4ef1ab46b484e3c706329cedeff284a5d40824200638503f5768edb6de7d58e9"},
@@ -656,7 +659,10 @@ async-timeout = [
 ]
 atomicwrites = []
 attrs = []
-certifi = []
+certifi = [
+    {file = "certifi-2022.9.24-py3-none-any.whl", hash = "sha256:90c1a32f1d68f940488354e36370f6cca89f0f106db09518524c88d6ed83f382"},
+    {file = "certifi-2022.9.24.tar.gz", hash = "sha256:0d9c601124e5a6ba9712dbc60d9c53c21e34f5f641fe83002317394311bdce14"},
+]
 charset-normalizer = [
     {file = "charset-normalizer-2.0.12.tar.gz", hash = "sha256:2857e29ff0d34db842cd7ca3230549d1a697f96ee6d3fb071cfa6c7393832597"},
     {file = "charset_normalizer-2.0.12-py3-none-any.whl", hash = "sha256:6881edbebdb17b39b4eaaa821b438bf6eddffb4468cf344f09f89def34a8b1df"},
@@ -684,8 +690,8 @@ dataclasses = [
 ]
 fake-winreg = []
 fastapi = [
-    {file = "fastapi-0.79.1-py3-none-any.whl", hash = "sha256:3c584179c64e265749e88221c860520fc512ea37e253282dab378cc503dfd7fd"},
-    {file = "fastapi-0.79.1.tar.gz", hash = "sha256:006862dec0f0f5683ac21fb0864af2ff12a931e7ba18920f28cc8eceed51896b"},
+    {file = "fastapi-0.83.0-py3-none-any.whl", hash = "sha256:694a2b6c2607a61029a4be1c6613f84d74019cb9f7a41c7a475dca8e715f9368"},
+    {file = "fastapi-0.83.0.tar.gz", hash = "sha256:96eb692350fe13d7a9843c3c87a874f0d45102975257dd224903efd6c0fde3bd"},
 ]
 h11 = [
     {file = "h11-0.13.0-py3-none-any.whl", hash = "sha256:8ddd78563b633ca55346c8cd41ec0af27d3c79931828beffb46ce70a379e7442"},
@@ -696,10 +702,52 @@ humanfriendly = [
     {file = "humanfriendly-10.0.tar.gz", hash = "sha256:6b0b831ce8f15f7300721aa49829fc4e83921a9a301cc7f606be6686a2288ddc"},
 ]
 idna = [
-    {file = "idna-3.3-py3-none-any.whl", hash = "sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff"},
-    {file = "idna-3.3.tar.gz", hash = "sha256:9d643ff0a55b762d5cdb124b8eaa99c66322e2157b69160bc32796e824360e6d"},
+    {file = "idna-3.4-py3-none-any.whl", hash = "sha256:90b77e79eaa3eba6de819a0c442c0b4ceefc341a7a2ab77d7562bf49f425c5c2"},
+    {file = "idna-3.4.tar.gz", hash = "sha256:814f528e8dead7d329833b91c5faa87d60bf71824cd12a7530b5526063d02cb4"},
 ]
-immutables = []
+immutables = [
+    {file = "immutables-0.19-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:fef6743f8c3098ae46d9a2a3606b04a91c62e216487d91e90ce5c7419da3f803"},
+    {file = "immutables-0.19-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:cfb62119b7302a37cb4a1db44234dab9acda60ba93e3c28489969722e85237b7"},
+    {file = "immutables-0.19-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:1d55b886e92ef5abfc4b066f404d956ca5789a2f8f738d448300fba40930a631"},
+    {file = "immutables-0.19-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:40f1c3ab3ae690a55a2f61039705a110f0e23717d6d8a62a84600fc7cf5934dc"},
+    {file = "immutables-0.19-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:f3096afb376b9b3651a3b92affd1896b4dcefde209f412572f7e3924f6749a49"},
+    {file = "immutables-0.19-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:85bcb5a7c33100c1b2eeb8c71e5f80acab4c9dde074b2c2ca8e3dfb6830ce813"},
+    {file = "immutables-0.19-cp310-cp310-win_amd64.whl", hash = "sha256:620c166e76030ca4772ea64e5190f8347a730a0af85b743820d351f211004397"},
+    {file = "immutables-0.19-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:c1774f298db9d460e50c40dfc9cfe7dd8a0de22c22f1de9a1f9a468daa1201dc"},
+    {file = "immutables-0.19-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:24dbdc28779a2b75e06224609f4fc850ba61b7e1b74e32ec808c6430a535be2d"},
+    {file = "immutables-0.19-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9b8c0a4264e3ba2f025f4517ce67f0d0869106a625dbda08758cbf4dd6b6dd1f"},
+    {file = "immutables-0.19-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:28d1ee66424c2db998d27ebe0a331c7e09627e54a402848b2897cb6ef4dc4d7e"},
+    {file = "immutables-0.19-cp311-cp311-musllinux_1_1_aarch64.whl", hash = "sha256:6f857aec0e0455986fd1f41234c867c3daf5a89ff7f54d493d4eb3c233d36d3c"},
+    {file = "immutables-0.19-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:119c60a05cb35add45c1e592e23a5cbb9db03161bb89d1596b920d9341173982"},
+    {file = "immutables-0.19-cp311-cp311-win_amd64.whl", hash = "sha256:3fbad255e404b4cbcf3477b384a1e400bd8f28cbbfc2df8d3885abe3bfc7b909"},
+    {file = "immutables-0.19-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:6660e185354a1cb59ecc130f2b85b50d666d4417be668ce6ba83d4be79f55d34"},
+    {file = "immutables-0.19-cp36-cp36m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:37de95c1d79707d95f50d0ab79e067bee52381afc967ff031ac4c822c14f43a8"},
+    {file = "immutables-0.19-cp36-cp36m-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ed61dbc963251bec7281cdb0c148176bbd70519d21fd05bce4c484632cdc3b2c"},
+    {file = "immutables-0.19-cp36-cp36m-musllinux_1_1_aarch64.whl", hash = "sha256:7da9356a163993e01785a211b47c6a0038b48d1235b68479a0053c2c4c3cf666"},
+    {file = "immutables-0.19-cp36-cp36m-musllinux_1_1_x86_64.whl", hash = "sha256:41d8cae52ea527f9c6dccdf1e1553106c482496acc140523034f91877ccbc103"},
+    {file = "immutables-0.19-cp36-cp36m-win_amd64.whl", hash = "sha256:e95f0826f184920adb3cdf830f409f1c1d4e943e4dc50242538c4df9d51eea72"},
+    {file = "immutables-0.19-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:50608784e33c88da8c0e06e75f6725865cf2e345c8f3eeb83cb85111f737e986"},
+    {file = "immutables-0.19-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:1cbd4d9dc531ee24b2387141a5968e923bb6174d13695e730cde0887aadda557"},
+    {file = "immutables-0.19-cp37-cp37m-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:eed8988dc4ebde8d527dbe4dea68cb9fe6d43bc56df60d6015130dc4abd2ab34"},
+    {file = "immutables-0.19-cp37-cp37m-musllinux_1_1_aarch64.whl", hash = "sha256:c830c9afc6fcb4a7d6d74230d6290987e664418026a15488ad00d8a3dc5ec743"},
+    {file = "immutables-0.19-cp37-cp37m-musllinux_1_1_x86_64.whl", hash = "sha256:7c6cce2e87cd5369234b199037631cfed08e43813a1fdd750807d14404de195b"},
+    {file = "immutables-0.19-cp37-cp37m-win_amd64.whl", hash = "sha256:10774f73af07b1648fa02f45f6ff88b3391feda65d4f640159e6eeec10540ece"},
+    {file = "immutables-0.19-cp38-cp38-macosx_10_9_universal2.whl", hash = "sha256:a208a945ea817b1455b5b0f9c33c097baf6443b50d749a3dc32ff445e41b81d2"},
+    {file = "immutables-0.19-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:25a6225efb5e96fc95d84b2d280e35d8a82a1ae72a12857177d48cc289ac1e03"},
+    {file = "immutables-0.19-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5c0cf0d94b08e58896acf250cbc4682499c8a256fc6d0ee5c63d76a759a6a228"},
+    {file = "immutables-0.19-cp38-cp38-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:64c74c5171f3a97b178b880746743a07b08e7d7f6055370bf04a94d50aea0643"},
+    {file = "immutables-0.19-cp38-cp38-musllinux_1_1_aarch64.whl", hash = "sha256:8ababf72ed2a956b28f151d605a7bb1d4e1c59113f53bf2be4a586da3977b319"},
+    {file = "immutables-0.19-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:52a91917c65e6b9cfef7a2d2c3b0e00432a153aa8650785b7ee0897d80226278"},
+    {file = "immutables-0.19-cp38-cp38-win_amd64.whl", hash = "sha256:bbe65c23779e12e0ecc3dec2c709ad22b7cc8b163895327bc173ae06a8b73425"},
+    {file = "immutables-0.19-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:480cc5d62efcac66f9737ae0820acd39d39e516e6fdbcf46cbdc26f11b429fd7"},
+    {file = "immutables-0.19-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:2d88ff44e131508def4740964076c3da273baeeb406c1fe139f18373ea4196dd"},
+    {file = "immutables-0.19-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:7fa3148393101b0c4571da523929ae90a5b4bfc933c270a11b802a34a921c608"},
+    {file = "immutables-0.19-cp39-cp39-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0575190a90c3fce6862ccdb09be3344741ff97a96e559893541886d372139f1c"},
+    {file = "immutables-0.19-cp39-cp39-musllinux_1_1_aarch64.whl", hash = "sha256:3754b26ef18b5d1009ffdeafc17fbd877a79f0a126e1423069bd8ef51c54302d"},
+    {file = "immutables-0.19-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:648142e16d49f5207ae52ee1b28dfa148206471967b9c9eaa5a9592fd32d5cef"},
+    {file = "immutables-0.19-cp39-cp39-win_amd64.whl", hash = "sha256:199db9070ffa1a037e6650ddd63159907a210e4998f932bdf50e70615629db0c"},
+    {file = "immutables-0.19.tar.gz", hash = "sha256:df17942d60e8080835fcc5245aa6928ef4c1ed567570ec019185798195048dcf"},
+]
 importlib-metadata = [
     {file = "importlib_metadata-4.8.3-py3-none-any.whl", hash = "sha256:65a9576a5b2d58ca44d133c42a241905cc45e34d2c06fd5ba2bafa221e5d7b5e"},
     {file = "importlib_metadata-4.8.3.tar.gz", hash = "sha256:766abffff765960fcc18003801f7044eb6755ffae4521c8e8ce8e83b9c9b0668"},
@@ -802,8 +850,8 @@ requests = [
 ]
 rst-include = []
 sentry-sdk = [
-    {file = "sentry-sdk-1.9.8.tar.gz", hash = "sha256:ef4b4d57631662ff81e15c22bf007f7ce07c47321648c8e601fbd22950ed1a79"},
-    {file = "sentry_sdk-1.9.8-py2.py3-none-any.whl", hash = "sha256:7378c08d81da78a4860da7b4900ac51fef38be841d01bc5b7cb249ac51e070c6"},
+    {file = "sentry-sdk-1.10.1.tar.gz", hash = "sha256:105faf7bd7b7fa25653404619ee261527266b14103fe1389e0ce077bd23a9691"},
+    {file = "sentry_sdk-1.10.1-py2.py3-none-any.whl", hash = "sha256:06c0fa9ccfdc80d7e3b5d2021978d6eb9351fa49db9b5847cf4d1f2a473414ad"},
 ]
 sniffio = [
     {file = "sniffio-1.2.0-py3-none-any.whl", hash = "sha256:471b71698eac1c2112a40ce2752bb2f4a4814c22a54a3eed3676bc0f5ca9f663"},
