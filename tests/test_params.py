@@ -381,7 +381,7 @@ def test_openapi(app_client, openapi_compatible):
                             'type': 'object',
                         },
                     },
-                    'required': ['method', 'params'],
+                    'required': ['method'],
                     'title': '_Request',
                     'type': 'object',
                 },

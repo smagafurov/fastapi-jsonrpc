@@ -366,7 +366,7 @@ class JsonRpcRequest(BaseModel):
     jsonrpc: StrictStr = Field('2.0', const=True, example='2.0')
     id: Union[StrictStr, int] = Field(None, example=0)
     method: StrictStr
-    params: dict
+    params: dict = Field(default_factory=dict)
 
     class Config:
         extra = 'forbid'

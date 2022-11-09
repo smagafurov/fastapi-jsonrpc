@@ -32,7 +32,6 @@ def test_no_params(echo, json_request):
         'id': 111,
         'jsonrpc': '2.0',
         'method': 'no_params',
-        'params': {},
     })
     assert resp == {'id': 111, 'jsonrpc': '2.0', 'result': '123'}
 
@@ -202,10 +201,10 @@ def test_request_params_missing(echo, json_request):
     })
     assert resp == {
         'error': {
-            'code': -32600,
-            'message': 'Invalid Request',
+            'code': -32602,
+            'message': 'Invalid params',
             'data': {'errors': [
-                {'loc': ['params'], 'msg': 'field required', 'type': 'value_error.missing'},
+                {'loc': ['data'], 'msg': 'field required', 'type': 'value_error.missing'},
             ]},
         },
         'id': 0,
