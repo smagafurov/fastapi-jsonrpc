@@ -7,7 +7,7 @@ on:
   schedule:
     - cron: '30 03 * * 1'  # Test each week
 
-  pull_request:  # just for testing in this PR
+  pull_request:
 
 jobs:
   tests:
