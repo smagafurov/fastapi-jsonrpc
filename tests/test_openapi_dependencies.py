@@ -27,7 +27,7 @@ def ep(ep_path):
 
     @ep.method()
     def probe(
-        data: List[str] = Body(..., example=['111', '222']),
+        data: List[str] = Body(..., examples=['111', '222']),
     ) -> List[int]:
         del data
         return [1, 2, 3]
@@ -382,7 +382,7 @@ def test_basic(app_client, openapi_compatible):
                             'type': 'number',
                         },
                         'data': {
-                            'example': ['111', '222'],
+                            'examples': ['111', '222'],
                             'items': {
                                 'type': 'string',
                             },

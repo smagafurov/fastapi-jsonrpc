@@ -7,7 +7,7 @@ def test_basic(ep, app, app_client, openapi_compatible):
     # noinspection PyUnusedLocal
     @ep.method()
     def probe(
-        data: List[str] = Body(..., example=['111', '222']),
+        data: List[str] = Body(..., examples=['111', '222']),
         amount: int = Body(..., gt=5, example=10),
     ) -> List[int]:
         del data, amount
@@ -323,7 +323,7 @@ def test_basic(ep, app, app_client, openapi_compatible):
                             'type': 'integer',
                         },
                         'data': {
-                            'example': ['111', '222'],
+                            'examples': ['111', '222'],
                             'items': {
                                 'type': 'string',
                             },
@@ -619,7 +619,7 @@ api_v1 = jsonrpc.Entrypoint(
 
 @api_v1.method()
 def probe(
-    data: List[str] = Body(..., example=['111', '222']),
+    data: List[str] = Body(..., examples=['111', '222']),
     amount: int = Body(..., gt=5, example=10),
 ) -> List[int]:
     return [1, 2, 3]

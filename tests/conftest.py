@@ -1,6 +1,7 @@
 import logging
 import platform
 from json import dumps as json_dumps
+from unittest.mock import ANY
 
 import packaging.version
 import pydantic
@@ -129,8 +130,12 @@ def method_request(json_request, add_path_postfix):
 
 @pytest.fixture
 def openapi_compatible():
+    supported_openapi_versions = [packaging.version.parse("3.0.2"), packaging.version.parse("3.1.0")]
+
     if packaging.version.parse(pydantic.VERSION) >= packaging.version.parse("1.10.0"):
         def _openapi_compatible(value: dict):
+            assert packaging.version.parse(value['openapi']) in supported_openapi_versions
+            value['openapi'] = ANY
             return value
     else:
         def _openapi_compatible(obj: dict):
@@ -139,5 +144,9 @@ def openapi_compatible():
                     obj[k] = _openapi_compatible(obj[k])
             if 'const' in obj and 'default' in obj:
                 del obj['default']
+
+            assert packaging.version.parse(obj['openapi']) in supported_openapi_versions
+            obj['openapi'] = ANY
+
             return obj
     return _openapi_compatible

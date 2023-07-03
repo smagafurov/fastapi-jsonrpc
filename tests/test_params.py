@@ -6,7 +6,7 @@ from fastapi_jsonrpc import Params
 
 
 class WholeParams(BaseModel):
-    data: List[str] = Field(..., example=['111', '222'])
+    data: List[str] = Field(..., examples=['111', '222'])
     amount: int = Field(..., gt=5, example=10)
 
 
@@ -151,7 +151,7 @@ def test_openapi(app_client, openapi_compatible):
                             'type': 'integer',
                         },
                         'data': {
-                            'example': ['111', '222'],
+                            'examples': ['111', '222'],
                             'items': {'type': 'string'},
                             'title': 'Data',
                             'type': 'array',

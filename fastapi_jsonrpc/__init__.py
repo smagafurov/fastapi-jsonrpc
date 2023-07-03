@@ -471,6 +471,9 @@ def make_request_model(name, module, body_params: List[ModelField]):
             example = f.field_info.example  # noqa
             if example is not Undefined:
                 f.field_info.extra['example'] = jsonable_encoder(example)
+            examples = f.field_info.extra.get('examples')
+            if examples is not None:
+                f.field_info.extra['examples'] = jsonable_encoder(examples)
             _JsonRpcRequestParams.__fields__[f.name] = f
 
         _JsonRpcRequestParams = component_name(f'_Params[{name}]', module)(_JsonRpcRequestParams)
