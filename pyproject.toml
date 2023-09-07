@@ -20,7 +20,7 @@ fastapi = [
 pydantic = [
     {version = ">0.0.0", python = "<3.11"},
     {version = ">=1.10.0", python = ">=3.11"},
-    {version = "<=1.10.12"},
+    {version = "<2.0.0"},
 ]
 starlette = ">0.0.0"
 
