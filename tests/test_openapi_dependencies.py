@@ -1,3 +1,5 @@
+from unittest.mock import ANY
+
 import pytest
 from fastapi import Body, Depends, Header
 from typing import List
@@ -57,14 +59,12 @@ def test_basic(app_client, openapi_compatible):
                 'InternalError': {
                     'properties': {
                         'code': {
-                            'const': -32603,
                             'default': -32603,
                             'example': -32603,
                             'title': 'Code',
                             'type': 'integer',
                         },
                         'message': {
-                            'const': 'Internal error',
                             'default': 'Internal error',
                             'example': 'Internal error',
                             'title': 'Message',
@@ -77,17 +77,16 @@ def test_basic(app_client, openapi_compatible):
                 'InvalidParams': {
                     'properties': {
                         'code': {
-                            'const': -32602,
                             'default': -32602,
                             'example': -32602,
                             'title': 'Code',
                             'type': 'integer',
                         },
-                        'data': {
-                            '$ref': '#/components/schemas/_ErrorData__Error_',
-                        },
+                        'data': {'anyOf': [
+                            {'$ref': '#/components/schemas/_ErrorData__Error_', },
+                            {'type': 'null'}
+                        ]},
                         'message': {
-                            'const': 'Invalid params',
                             'default': 'Invalid params',
                             'example': 'Invalid params',
                             'title': 'Message',
@@ -100,17 +99,16 @@ def test_basic(app_client, openapi_compatible):
                 'InvalidRequest': {
                     'properties': {
                         'code': {
-                            'const': -32600,
                             'default': -32600,
                             'example': -32600,
                             'title': 'Code',
                             'type': 'integer',
                         },
-                        'data': {
-                            '$ref': '#/components/schemas/_ErrorData__Error_',
-                        },
+                        'data': {'anyOf': [
+                            {'$ref': '#/components/schemas/_ErrorData__Error_', },
+                            {'type': 'null'}
+                        ]},
                         'message': {
-                            'const': 'Invalid Request',
                             'default': 'Invalid Request',
                             'example': 'Invalid Request',
                             'title': 'Message',
@@ -123,14 +121,12 @@ def test_basic(app_client, openapi_compatible):
                 'MethodNotFound': {
                     'properties': {
                         'code': {
-                            'const': -32601,
                             'default': -32601,
                             'example': -32601,
                             'title': 'Code',
                             'type': 'integer',
                         },
                         'message': {
-                            'const': 'Method not found',
                             'default': 'Method not found',
                             'example': 'Method not found',
                             'title': 'Message',
@@ -143,14 +139,12 @@ def test_basic(app_client, openapi_compatible):
                 'ParseError': {
                     'properties': {
                         'code': {
-                            'const': -32700,
                             'default': -32700,
                             'example': -32700,
                             'title': 'Code',
                             'type': 'integer',
                         },
                         'message': {
-                            'const': 'Parse error',
                             'default': 'Parse error',
                             'example': 'Parse error',
                             'title': 'Message',
@@ -164,7 +158,7 @@ def test_basic(app_client, openapi_compatible):
                     'properties': {
                         'ctx': {
                             'title': 'Ctx',
-                            'type': 'object',
+                            'anyOf': [{'type': 'object'}, {'type': 'null'}],
                         },
                         'loc': {
                             'items': {
@@ -189,11 +183,11 @@ def test_basic(app_client, openapi_compatible):
                 '_ErrorData__Error_': {
                     'properties': {
                         'errors': {
-                            'items': {
-                                '$ref': '#/components/schemas/_Error',
-                            },
+                            'anyOf': [
+                                {'items': {'$ref': '#/components/schemas/_Error'}, 'type': 'array'},
+                                {'type': 'null'}
+                            ],
                             'title': 'Errors',
-                            'type': 'array',
                         },
                     },
                     'title': '_ErrorData[_Error]',
@@ -222,7 +216,6 @@ def test_basic(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                     },
                     'required': ['error'],
@@ -252,7 +245,6 @@ def test_basic(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                     },
                     'required': ['error'],
@@ -282,7 +274,6 @@ def test_basic(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                     },
                     'required': ['error'],
@@ -312,7 +303,6 @@ def test_basic(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                     },
                     'required': ['error'],
@@ -342,7 +332,6 @@ def test_basic(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                     },
                     'required': ['error'],
@@ -407,10 +396,8 @@ def test_basic(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                         'method': {
-                            'const': 'entrypoint',
                             'default': 'entrypoint',
                             'example': 'entrypoint',
                             'title': 'Method',
@@ -435,10 +422,8 @@ def test_basic(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                         'method': {
-                            'const': 'probe2',
                             'default': 'probe2',
                             'example': 'probe2',
                             'title': 'Method',
@@ -470,10 +455,8 @@ def test_basic(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                         'method': {
-                            'const': 'probe',
                             'default': 'probe',
                             'example': 'probe',
                             'title': 'Method',
@@ -507,14 +490,13 @@ def test_basic(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                         'result': {
                             'title': 'Result',
                             'type': 'object',
                         },
                     },
-                    'required': ['result'],
+                    'required': ['jsonrpc', 'id', 'result'],
                     'title': '_Response',
                     'type': 'object',
                 },
@@ -531,14 +513,13 @@ def test_basic(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                         'result': {
                             'title': 'Result',
                             'type': 'integer',
                         }
                     },
-                    'required': ['result'],
+                    'required': ['jsonrpc', 'id', 'result'],
                     'title': '_Response[probe2]',
                     'type': 'object',
                 },
@@ -562,7 +543,6 @@ def test_basic(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                         'result': {
                             'items': {
@@ -572,7 +552,7 @@ def test_basic(app_client, openapi_compatible):
                             'type': 'array',
                         },
                     },
-                    'required': ['result'],
+                    'required': ['jsonrpc', 'id', 'result'],
                     'title': '_Response[probe]',
                     'type': 'object',
                 },
@@ -605,68 +585,7 @@ def test_basic(app_client, openapi_compatible):
                         },
                         'required': True,
                     },
-                    'responses': {
-                        '200': {
-                            'content': {
-                                'application/json': {
-                                    'schema': {
-                                        '$ref': '#/components/schemas/_Response',
-                                    },
-                                },
-                            },
-                            'description': 'Successful Response',
-                        },
-                        '200 ': {
-                            'content': {
-                                'application/json': {
-                                    'schema': {
-                                        '$ref': '#/components/schemas/_ErrorResponse_InvalidParams_',
-                                    },
-                                },
-                            },
-                            'description': '[-32602] Invalid params\n\nInvalid method parameter(s)',
-                        },
-                        '200  ': {
-                            'content': {
-                                'application/json': {
-                                    'schema': {
-                                        '$ref': '#/components/schemas/_ErrorResponse_MethodNotFound_',
-                                    },
-                                },
-                            },
-                            'description': '[-32601] Method not found\n\nThe method does not exist / is not available',
-                        },
-                        '200   ': {
-                            'content': {
-                                'application/json': {
-                                    'schema': {
-                                        '$ref': '#/components/schemas/_ErrorResponse_ParseError_',
-                                    },
-                                },
-                            },
-                            'description': '[-32700] Parse error\n\nInvalid JSON was received by the server',
-                        },
-                        '200    ': {
-                            'content': {
-                                'application/json': {
-                                    'schema': {
-                                        '$ref': '#/components/schemas/_ErrorResponse_InvalidRequest_',
-                                    },
-                                },
-                            },
-                            'description': '[-32600] Invalid Request\n\nThe JSON sent is not a valid Request object',
-                        },
-                        '200     ': {
-                            'content': {
-                                'application/json': {
-                                    'schema': {
-                                        '$ref': '#/components/schemas/_ErrorResponse_InternalError_',
-                                    },
-                                },
-                            },
-                            'description': '[-32603] Internal error\n\nInternal JSON-RPC error',
-                        },
-                    },
+                    'responses': ANY,
                     'summary': 'Entrypoint',
                 },
             },

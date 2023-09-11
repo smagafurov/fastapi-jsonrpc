@@ -16,7 +16,7 @@ unique_marker = str(uuid.uuid4())
 unique_marker2 = str(uuid.uuid4())
 
 
-class TestError(jsonrpc.BaseError):
+class _TestError(jsonrpc.BaseError):
     CODE = 33333
     MESSAGE = "Test error"
 
@@ -34,7 +34,7 @@ def ep(ep_path):
             yield
         except RuntimeError as exc:
             logging.exception(str(exc), exc_info=exc)
-            raise TestError(unique_marker2)
+            raise _TestError(unique_marker2)
 
     @contextlib.asynccontextmanager
     async def ep_middleware(ctx: jsonrpc.JsonRpcContext):
@@ -71,7 +71,7 @@ def ep(ep_path):
 
     @ep.method(middlewares=[method_middleware])
     def probe(
-        data: str = Body(..., example='123'),
+        data: str = Body(..., examples=['123']),
     ) -> str:
         return data
 
