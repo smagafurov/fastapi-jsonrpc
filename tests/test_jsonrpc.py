@@ -16,7 +16,7 @@ def echo(ep, method_request):
 
     @ep.method()
     def echo(
-        data: str = Body(..., example='123'),
+        data: str = Body(..., examples=['123']),
     ) -> str:
         echo_info.history.append(data)
         return data
@@ -92,7 +92,13 @@ def test_dict_error(echo, json_request):
         'error': {
             'code': -32600,
             'message': 'Invalid Request',
-            'data': {'errors': [{'loc': [], 'msg': 'value is not a valid dict', 'type': 'type_error.dict'}]},
+            'data': {'errors': [{
+                'ctx': {'class_name': '_Request'},
+                'input': 'qwe',
+                'loc': [],
+                'msg': 'Input should be a valid dictionary or instance of _Request',
+                'type': 'model_type',
+            }]},
         },
         'id': None,
         'jsonrpc': '2.0',
@@ -112,10 +118,11 @@ def test_request_jsonrpc_validation_error(echo, json_request):
             'code': -32600,
             'message': 'Invalid Request',
             'data': {'errors': [{
-                'ctx': {'given': '3.0', 'permitted': ['2.0']},
+                'ctx': {'expected': "'2.0'"},
+                'input': '3.0',
                 'loc': ['jsonrpc'],
-                'msg': "unexpected value; permitted: '2.0'",
-                'type': 'value_error.const',
+                'msg': "Input should be '2.0'",
+                'type': 'literal_error',
             }]},
         },
         'id': 0,
@@ -136,8 +143,8 @@ def test_request_id_validation_error(echo, json_request):
             'code': -32600,
             'message': 'Invalid Request',
             'data': {'errors': [
-                {'loc': ['id'], 'msg': 'str type expected', 'type': 'type_error.str'},
-                {'loc': ['id'], 'msg': 'value is not a valid integer', 'type': 'type_error.integer'},
+                {'input': [123], 'loc': ['id', 'str'], 'msg': 'Input should be a valid string', 'type': 'string_type'},
+                {'input': [123], 'loc': ['id', 'int'], 'msg': 'Input should be a valid integer', 'type': 'int_type'}
             ]},
         },
         'id': [123],
@@ -157,7 +164,9 @@ def test_request_method_validation_error(echo, json_request):
         'error': {
             'code': -32600,
             'message': 'Invalid Request',
-            'data': {'errors': [{'loc': ['method'], 'msg': 'str type expected', 'type': 'type_error.str'}]},
+            'data': {'errors': [
+                {'input': 123, 'loc': ['method'], 'msg': 'Input should be a valid string', 'type': 'string_type'},
+            ]},
         },
         'id': 0,
         'jsonrpc': '2.0',
@@ -176,7 +185,8 @@ def test_request_params_validation_error(echo, json_request):
         'error': {
             'code': -32600,
             'message': 'Invalid Request',
-            'data': {'errors': [{'loc': ['params'], 'msg': 'value is not a valid dict', 'type': 'type_error.dict'}]},
+            'data': {'errors': [
+                {'input': 123, 'loc': ['params'], 'msg': 'Input should be a valid dictionary', 'type': 'dict_type'}]},
         },
         'id': 0,
         'jsonrpc': '2.0',
@@ -194,9 +204,12 @@ def test_request_method_missing(echo, json_request):
         'error': {
             'code': -32600,
             'message': 'Invalid Request',
-            'data': {'errors': [
-                {'loc': ['method'], 'msg': 'field required', 'type': 'value_error.missing'},
-            ]},
+            'data': {'errors': [{
+                'input': {'id': 0, 'jsonrpc': '2.0', 'params': {'data': 'data-123'}},
+                'loc': ['method'],
+                'msg': 'Field required',
+                'type': 'missing'
+            }]},
         },
         'id': 0,
         'jsonrpc': '2.0',
@@ -215,7 +228,7 @@ def test_request_params_missing(echo, json_request):
             'code': -32602,
             'message': 'Invalid params',
             'data': {'errors': [
-                {'loc': ['data'], 'msg': 'field required', 'type': 'value_error.missing'},
+                {'input': None, 'loc': ['data'], 'msg': 'Field required', 'type': 'missing'},
             ]},
         },
         'id': 0,
@@ -237,7 +250,12 @@ def test_request_extra(echo, json_request):
             'code': -32600,
             'message': 'Invalid Request',
             'data': {'errors': [
-                {'loc': ['some_extra'], 'msg': 'extra fields not permitted', 'type': 'value_error.extra'},
+                {
+                    'input': 123,
+                    'loc': ['some_extra'],
+                    'msg': 'Extra inputs are not permitted',
+                    'type': 'extra_forbidden',
+                },
             ]},
         },
         'id': 0,

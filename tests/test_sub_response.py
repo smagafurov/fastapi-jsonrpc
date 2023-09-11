@@ -26,7 +26,7 @@ def probe_ep(ep):
     @ep.method(middlewares=[method_middleware])
     def probe(
         http_response: Response,
-        data: str = Body(..., example='123'),
+        data: str = Body(..., examples=['123']),
     ) -> str:
         http_response.set_cookie(key='probe-cookie', value=data)
         http_response.status_code = 404

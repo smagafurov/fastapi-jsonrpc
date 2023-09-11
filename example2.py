@@ -58,8 +58,8 @@ def get_account_by_id(account_id) -> Account:
 
 class Balance(BaseModel):
     """Account balance"""
-    amount: int = Field(..., example=100)
-    currency: str = Field(..., example='USD')
+    amount: int = Field(..., examples=[100])
+    currency: str = Field(..., examples=['USD'])
 
 
 # errors

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fastapi-jsonrpc"
-version = "2.7.0"
+version = "3.0.0b"
 description = "JSON-RPC server based on fastapi"
 license = "MIT"
 authors = ["Sergey Magafurov <magafurov@tochka.com>"]
@@ -12,15 +12,13 @@ exclude = ["example1.py", "example2.py"]
 
 [tool.poetry.dependencies]
 python = "^3.7"
-aiojobs = ">0.2.2"
+aiojobs = ">=1.1.0"
 fastapi = [
-    {version = ">0.55.0", python = "<3.11"},
-    {version = ">=0.86.0", python = ">=3.11"},
+    {version = ">=0.100.0"},
 ]
 pydantic = [
-    {version = ">0.0.0", python = "<3.11"},
-    {version = ">=1.10.0", python = ">=3.11"},
-    {version = "<2.0.0"},
+    {version = ">=2.0.0"},
+    {version = "<3.0.0"},
 ]
 starlette = ">0.0.0"
 

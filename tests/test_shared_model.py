@@ -5,8 +5,8 @@ from typing import List
 
 class Balance(BaseModel):
     """Account balance"""
-    amount: int = Field(..., example=100)
-    currency: str = Field(..., example='USD')
+    amount: int = Field(..., examples=[100])
+    currency: str = Field(..., examples=['USD'])
 
 
 @pytest.fixture
@@ -65,12 +65,12 @@ def test_openapi(app_client, openapi_compatible):
                     'description': 'Account balance',
                     'properties': {
                         'amount': {
-                            'example': 100,
+                            'examples': [100],
                             'title': 'Amount',
                             'type': 'integer',
                         },
                         'currency': {
-                            'example': 'USD',
+                            'examples': ['USD'],
                             'title': 'Currency',
                             'type': 'string',
                         }
@@ -82,14 +82,12 @@ def test_openapi(app_client, openapi_compatible):
                 'InternalError': {
                     'properties': {
                         'code': {
-                            'const': -32603,
                             'default': -32603,
                             'example': -32603,
                             'title': 'Code',
                             'type': 'integer',
                         },
                         'message': {
-                            'const': 'Internal error',
                             'default': 'Internal error',
                             'example': 'Internal error',
                             'title': 'Message',
@@ -102,17 +100,16 @@ def test_openapi(app_client, openapi_compatible):
                 'InvalidParams': {
                     'properties': {
                         'code': {
-                            'const': -32602,
                             'default': -32602,
                             'example': -32602,
                             'title': 'Code',
                             'type': 'integer',
                         },
-                        'data': {
-                            '$ref': '#/components/schemas/_ErrorData__Error_',
-                        },
+                        'data': {'anyOf': [
+                            {'$ref': '#/components/schemas/_ErrorData__Error_', },
+                            {'type': 'null'}
+                        ]},
                         'message': {
-                            'const': 'Invalid params',
                             'default': 'Invalid params',
                             'example': 'Invalid params',
                             'title': 'Message',
@@ -125,17 +122,16 @@ def test_openapi(app_client, openapi_compatible):
                 'InvalidRequest': {
                     'properties': {
                         'code': {
-                            'const': -32600,
                             'default': -32600,
                             'example': -32600,
                             'title': 'Code',
                             'type': 'integer',
                         },
-                        'data': {
-                            '$ref': '#/components/schemas/_ErrorData__Error_',
-                        },
+                        'data': {'anyOf': [
+                            {'$ref': '#/components/schemas/_ErrorData__Error_', },
+                            {'type': 'null'}
+                        ]},
                         'message': {
-                            'const': 'Invalid Request',
                             'default': 'Invalid Request',
                             'example': 'Invalid Request',
                             'title': 'Message',
@@ -148,14 +144,12 @@ def test_openapi(app_client, openapi_compatible):
                 'MethodNotFound': {
                     'properties': {
                         'code': {
-                            'const': -32601,
                             'default': -32601,
                             'example': -32601,
                             'title': 'Code',
                             'type': 'integer',
                         },
                         'message': {
-                            'const': 'Method not found',
                             'default': 'Method not found',
                             'example': 'Method not found',
                             'title': 'Message',
@@ -168,14 +162,12 @@ def test_openapi(app_client, openapi_compatible):
                 'ParseError': {
                     'properties': {
                         'code': {
-                            'const': -32700,
                             'default': -32700,
                             'example': -32700,
                             'title': 'Code',
                             'type': 'integer',
                         },
                         'message': {
-                            'const': 'Parse error',
                             'default': 'Parse error',
                             'example': 'Parse error',
                             'title': 'Message',
@@ -189,7 +181,7 @@ def test_openapi(app_client, openapi_compatible):
                     'properties': {
                         'ctx': {
                             'title': 'Ctx',
-                            'type': 'object',
+                            'anyOf': [{'type': 'object'}, {'type': 'null'}],
                         },
                         'loc': {
                             'items': {
@@ -214,11 +206,11 @@ def test_openapi(app_client, openapi_compatible):
                 '_ErrorData__Error_': {
                     'properties': {
                         'errors': {
-                            'items': {
-                                '$ref': '#/components/schemas/_Error',
-                            },
+                            'anyOf': [
+                                {'items': {'$ref': '#/components/schemas/_Error'}, 'type': 'array'},
+                                {'type': 'null'}
+                            ],
                             'title': 'Errors',
-                            'type': 'array',
                         },
                     },
                     'title': '_ErrorData[_Error]',
@@ -247,7 +239,6 @@ def test_openapi(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                     },
                     'required': ['error'],
@@ -277,7 +268,6 @@ def test_openapi(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                     },
                     'required': ['error'],
@@ -307,7 +297,6 @@ def test_openapi(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                     },
                     'required': ['error'],
@@ -337,7 +326,6 @@ def test_openapi(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                     },
                     'required': ['error'],
@@ -367,7 +355,6 @@ def test_openapi(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                     },
                     'required': ['error'],
@@ -418,7 +405,6 @@ def test_openapi(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                         'method': {
                             'title': 'Method',
@@ -437,7 +423,14 @@ def test_openapi(app_client, openapi_compatible):
                     'additionalProperties': False,
                     'properties': {
                         'id': {
-                            'anyOf': [{'type': 'string'}, {'type': 'integer'}],
+                            'anyOf': [
+                                {
+                                    'type': 'string',
+                                },
+                                {
+                                    'type': 'integer',
+                                },
+                            ],
                             'example': 0,
                             'title': 'Id',
                         },
@@ -446,16 +439,16 @@ def test_openapi(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                         'method': {
-                            'const': 'probe1',
                             'default': 'probe1',
                             'example': 'probe1',
                             'title': 'Method',
                             'type': 'string',
                         },
-                        'params': {'$ref': '#/components/schemas/_Params_probe1_'},
+                        'params': {
+                            '$ref': '#/components/schemas/_Params_probe1_',
+                        },
                     },
                     'required': ['params'],
                     'title': '_Request[probe1]',
@@ -465,7 +458,14 @@ def test_openapi(app_client, openapi_compatible):
                     'additionalProperties': False,
                     'properties': {
                         'id': {
-                            'anyOf': [{'type': 'string'}, {'type': 'integer'}],
+                            'anyOf': [
+                                {
+                                    'type': 'string',
+                                },
+                                {
+                                    'type': 'integer',
+                                },
+                            ],
                             'example': 0,
                             'title': 'Id',
                         },
@@ -474,16 +474,16 @@ def test_openapi(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                         'method': {
-                            'const': 'probe2',
                             'default': 'probe2',
                             'example': 'probe2',
                             'title': 'Method',
                             'type': 'string',
                         },
-                        'params': {'$ref': '#/components/schemas/_Params_probe2_'},
+                        'params': {
+                            '$ref': '#/components/schemas/_Params_probe2_',
+                        },
                     },
                     'required': ['params'],
                     'title': '_Request[probe2]',
@@ -509,14 +509,14 @@ def test_openapi(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                         'result': {
                             'title': 'Result',
                             'type': 'object',
                         },
                     },
-                    'required': ['result'],
+
+                    'required': ['jsonrpc', 'id', 'result'],
                     'title': '_Response',
                     'type': 'object',
                 },
@@ -524,7 +524,14 @@ def test_openapi(app_client, openapi_compatible):
                     'additionalProperties': False,
                     'properties': {
                         'id': {
-                            'anyOf': [{'type': 'string'}, {'type': 'integer'}],
+                            'anyOf': [
+                                {
+                                    'type': 'string',
+                                },
+                                {
+                                    'type': 'integer',
+                                },
+                            ],
                             'example': 0,
                             'title': 'Id',
                         },
@@ -533,7 +540,6 @@ def test_openapi(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                         'result': {
                             'items': {'$ref': '#/components/schemas/Balance'},
@@ -541,7 +547,7 @@ def test_openapi(app_client, openapi_compatible):
                             'type': 'array',
                         },
                     },
-                    'required': ['result'],
+                    'required': ['jsonrpc', 'id', 'result'],
                     'title': '_Response[probe1]',
                     'type': 'object',
                 },
@@ -549,7 +555,14 @@ def test_openapi(app_client, openapi_compatible):
                     'additionalProperties': False,
                     'properties': {
                         'id': {
-                            'anyOf': [{'type': 'string'}, {'type': 'integer'}],
+                            'anyOf': [
+                                {
+                                    'type': 'string',
+                                },
+                                {
+                                    'type': 'integer',
+                                },
+                            ],
                             'example': 0,
                             'title': 'Id',
                         },
@@ -558,7 +571,6 @@ def test_openapi(app_client, openapi_compatible):
                             'default': '2.0',
                             'example': '2.0',
                             'title': 'Jsonrpc',
-                            'type': 'string',
                         },
                         'result': {
                             'items': {'$ref': '#/components/schemas/Balance'},
@@ -566,7 +578,7 @@ def test_openapi(app_client, openapi_compatible):
                             'type': 'array',
                         },
                     },
-                    'required': ['result'],
+                    'required': ['jsonrpc', 'id', 'result'],
                     'title': '_Response[probe2]',
                     'type': 'object',
                 },
@@ -659,13 +671,23 @@ def test_openapi(app_client, openapi_compatible):
                 'post': {
                     'operationId': 'probe1_api_v1_jsonrpc_probe1_post',
                     'requestBody': {
-                        'content': {'application/json': {'schema': {'$ref': '#/components/schemas/_Request_probe1_'}}},
+                        'content': {
+                            'application/json': {
+                                'schema': {
+                                    '$ref': '#/components/schemas/_Request_probe1_',
+                                },
+                            },
+                        },
                         'required': True,
                     },
                     'responses': {
                         '200': {
                             'content': {
-                                'application/json': {'schema': {'$ref': '#/components/schemas/_Response_probe1_'}},
+                                'application/json': {
+                                    'schema': {
+                                        '$ref': '#/components/schemas/_Response_probe1_',
+                                    },
+                                },
                             },
                             'description': 'Successful Response',
                         },
@@ -677,13 +699,23 @@ def test_openapi(app_client, openapi_compatible):
                 'post': {
                     'operationId': 'probe2_api_v1_jsonrpc_probe2_post',
                     'requestBody': {
-                        'content': {'application/json': {'schema': {'$ref': '#/components/schemas/_Request_probe2_'}}},
+                        'content': {
+                            'application/json': {
+                                'schema': {
+                                    '$ref': '#/components/schemas/_Request_probe2_',
+                                },
+                            },
+                        },
                         'required': True,
                     },
                     'responses': {
                         '200': {
                             'content': {
-                                'application/json': {'schema': {'$ref': '#/components/schemas/_Response_probe2_'}},
+                                'application/json': {
+                                    'schema': {
+                                        '$ref': '#/components/schemas/_Response_probe2_',
+                                    },
+                                },
                             },
                             'description': 'Successful Response',
                         },

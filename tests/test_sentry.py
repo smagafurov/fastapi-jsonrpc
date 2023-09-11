@@ -62,7 +62,7 @@ def test_transaction_is_jsonrpc_method(
     ]) == {'test_sentry.probe.<locals>.probe', 'test_sentry.probe.<locals>.probe2'}
 
 
-class TestTransport(Transport):
+class _TestTransport(Transport):
     def __init__(self, capture_event_callback, capture_envelope_callback):
         Transport.__init__(self)
         self.capture_event = capture_event_callback
@@ -92,7 +92,7 @@ def monkeypatch_test_transport(monkeypatch):
 
     def inner(client):
         monkeypatch.setattr(
-            client, "transport", TestTransport(check_event, check_envelope)
+            client, "transport", _TestTransport(check_event, check_envelope)
         )
 
     return inner
