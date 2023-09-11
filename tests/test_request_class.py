@@ -6,7 +6,6 @@ from fastapi_jsonrpc import Entrypoint, get_jsonrpc_method, JsonRpcRequest
 
 @pytest.fixture
 def ep(ep_path):
-
     class CustomJsonRpcRequest(JsonRpcRequest):
         extra_value: str
 
@@ -35,7 +34,7 @@ def test_custom_request_class(ep, json_request):
     assert resp == {'id': 0, 'jsonrpc': '2.0', 'result': 'probe'}
 
 
-def test_custom_request_class_unexpeted_type(ep, json_request):
+def test_custom_request_class_unexpected_type(ep, json_request):
     resp = json_request({
         'id': 0,
         'jsonrpc': '2.0',
@@ -47,11 +46,13 @@ def test_custom_request_class_unexpeted_type(ep, json_request):
         'error': {
             'code': -32600,
             'message': 'Invalid Request',
-            'data': {'errors': [{'loc': ['extra_value'], 'msg': 'str type expected', 'type': 'type_error.str'}]},
+            'data': {'errors': [
+                {'input': {}, 'loc': ['extra_value'], 'msg': 'Input should be a valid string', 'type': 'string_type'}]},
         },
         'id': 0,
         'jsonrpc': '2.0',
     }
+
 
 def test_unexpected_extra(ep, json_request):
     resp = json_request({
@@ -67,7 +68,12 @@ def test_unexpected_extra(ep, json_request):
             'code': -32600,
             'message': 'Invalid Request',
             'data': {'errors': [
-                {'loc': ['unexpected_extra'], 'msg': 'extra fields not permitted', 'type': 'value_error.extra'},
+                {
+                    'input': 123,
+                    'loc': ['unexpected_extra'],
+                    'msg': 'Extra inputs are not permitted',
+                    'type': 'extra_forbidden',
+                },
             ]},
         },
         'id': 0,

@@ -64,7 +64,7 @@ def ep(ep_path):
 
     @ep.method()
     def probe(
-        data: str = Body(..., example='123'),
+        data: str = Body(..., examples=['123']),
     ) -> str:
         return data
 

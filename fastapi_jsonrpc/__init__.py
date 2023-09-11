@@ -7,14 +7,14 @@ from collections import ChainMap, defaultdict
 from collections.abc import Coroutine
 from contextlib import AsyncExitStack, AbstractAsyncContextManager, asynccontextmanager, contextmanager
 from types import FunctionType
-from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable
+from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence
 
-from pydantic import create_model, schema_of
-from pydantic import DictError  # noqa
-from pydantic import StrictStr, ValidationError
-from pydantic import BaseModel, BaseConfig
-from pydantic.fields import ModelField, Field, Undefined
-from pydantic.main import ModelMetaclass  # noqa
+try:
+    from typing import Literal
+except ImportError:
+    from typing_extensions import Literal
+
+from fastapi._compat import ModelField, Undefined
 from fastapi.dependencies.models import Dependant
 from fastapi.encoders import jsonable_encoder
 from fastapi.params import Depends
@@ -23,6 +23,7 @@ from fastapi.dependencies.utils import solve_dependencies, get_dependant, get_fl
     get_parameterless_sub_dependant
 from fastapi.exceptions import RequestValidationError, HTTPException
 from fastapi.routing import APIRoute, APIRouter, serialize_response
+from pydantic import BaseModel, ValidationError, StrictStr, Field, create_model, schema_of, ConfigDict
 from starlette.background import BackgroundTasks
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
@@ -32,7 +33,6 @@ import fastapi.params
 import aiojobs
 
 logger = logging.getLogger(__name__)
-
 
 try:
     from functools import cached_property
@@ -47,7 +47,6 @@ except ImportError:
                 return self
             value = obj.__dict__[self.func.__name__] = self.func(obj)
             return value
-
 
 try:
     import sentry_sdk
@@ -109,15 +108,33 @@ components = {}
 def component_name(name: str, module: str = None):
     """OpenAPI components must be unique by name"""
     def decorator(obj):
-        obj.__name__ = name
-        obj.__qualname__ = name
+        assert issubclass(obj, BaseModel)
+        opts = {
+            '__base__': tuple(obj.mro()[1:]),  # remove self from __base__
+            '__module__': module or obj.__module__,
+            **{
+                field_name: (field.annotation, field)
+                for field_name, field in obj.model_fields.items()
+            },
+        }
+        if obj.model_config:
+            opts.pop('__base__')
+            opts['__config__'] = obj.model_config
+
+        # re-create model to ensure given name will be applied to json schema
+        # since Pydantic 2.0 model json schema generated at class creation process
+
+        obj = create_model(name, **opts)
+
         if module is not None:
-            obj.__module__ = module  # see: pydantic.schema.get_long_model_name
+            obj.__module__ = module  # see: pydantic._internal._core_utils.get_type_ref
         key = (obj.__name__, obj.__module__)
         if key in components:
-            if components[key].schema() != obj.schema():
+            lhs = components[key].model_json_schema()
+            rhs = obj.model_json_schema()
+            if lhs != rhs:
                 raise RuntimeError(
-                    f"Different models with the same name detected: {obj!r} != {components[key]}"
+                    f"Different models with the same name detected: {lhs!r} != {rhs}"
                 )
             return components[key]
         components[key] = obj
@@ -174,7 +191,7 @@ class BaseError(Exception):
     def validate_data(cls, data):
         data_model = cls.get_data_model()
         if data_model:
-            data = data_model.validate(data)
+            data = data_model.model_validate(data)
         return data
 
     def __str__(self):
@@ -244,18 +261,24 @@ class BaseError(Exception):
         if error_model is None:
             return None
 
+        default_value = ...
         errors_annotation = List[error_model]
         if not cls.errors_required:
             errors_annotation = Optional[errors_annotation]
+            default_value = None
 
-        ns = {
-            '__annotations__': {
-                'errors': errors_annotation,
-            }
+        field_definitions = {
+            'errors': (errors_annotation, default_value)
         }
 
-        _ErrorData = ModelMetaclass.__new__(ModelMetaclass, '_ErrorData', (BaseModel,), ns)
-        _ErrorData = component_name(f'_ErrorData[{error_model.__name__}]', error_model.__module__)(_ErrorData)
+        name = f'_ErrorData[{error_model.__name__}]'
+        _ErrorData = create_model(
+            name,
+            __base__=(BaseModel,),
+            __module__=error_model.__module__,
+            **field_definitions,
+        )
+        _ErrorData = component_name(name, error_model.__module__)(_ErrorData)
 
         return _ErrorData
 
@@ -268,35 +291,37 @@ class BaseError(Exception):
 
     @classmethod
     def build_resp_model(cls):
-        ns = {
-            'code': Field(cls.CODE, const=True, example=cls.CODE),
-            'message': Field(cls.MESSAGE, const=True, example=cls.MESSAGE),
-            '__annotations__': {
-                'code': int,
-                'message': str,
-            }
+        fields_definition = {
+            'code': (int, Field(cls.CODE, frozen=True, json_schema_extra={'example': cls.CODE})),
+            'message': (str, Field(cls.MESSAGE, frozen=True, json_schema_extra={'example': cls.MESSAGE})),
         }
 
         data_model = cls.get_data_model()
         if data_model is not None:
+            data_model_default_value = ...
             if not cls.data_required:
                 data_model = Optional[data_model]
-            # noinspection PyTypeChecker
-            ns['__annotations__']['data'] = data_model
+                data_model_default_value = None
+
+            fields_definition['data'] = (data_model, data_model_default_value)
 
         name = cls._component_name or cls.__name__
 
-        _JsonRpcErrorModel = ModelMetaclass.__new__(ModelMetaclass, '_JsonRpcErrorModel', (BaseModel,), ns)
+        _JsonRpcErrorModel = create_model(
+            name,
+            __base__=(BaseModel,),
+            __module__=cls.__module__,
+            **fields_definition,
+        )
         _JsonRpcErrorModel = component_name(name, cls.__module__)(_JsonRpcErrorModel)
 
         @component_name(f'_ErrorResponse[{name}]', cls.__module__)
         class _ErrorResponseModel(BaseModel):
-            jsonrpc: StrictStr = Field('2.0', const=True, example='2.0')
-            id: Union[StrictStr, int] = Field(None, example=0)
+            jsonrpc: Literal['2.0'] = Field('2.0', json_schema_extra={'example': '2.0'})
+            id: Union[StrictStr, int] = Field(None, json_schema_extra={'example': 0})
             error: _JsonRpcErrorModel
 
-            class Config:
-                extra = 'forbid'
+            model_config = ConfigDict(extra='forbid')
 
         return _ErrorResponseModel
 
@@ -306,7 +331,7 @@ class ErrorModel(BaseModel):
     loc: List[str]
     msg: str
     type: str
-    ctx: Optional[Dict[str, Any]]
+    ctx: Optional[Dict[str, Any]] = None
 
 
 class ParseError(BaseError):
@@ -370,38 +395,38 @@ def errors_responses(errors: Sequence[Type[BaseError]] = None):
 
 @component_name(f'_Request')
 class JsonRpcRequest(BaseModel):
-    jsonrpc: StrictStr = Field('2.0', const=True, example='2.0')
-    id: Union[StrictStr, int] = Field(None, example=0)
+    jsonrpc: Literal['2.0'] =  Field('2.0', json_schema_extra={'example': '2.0'})
+    id: Union[StrictStr, int] = Field(None, json_schema_extra={'example': 0})
     method: StrictStr
     params: dict = Field(default_factory=dict)
 
-    class Config:
-        extra = 'forbid'
+    model_config = ConfigDict(extra='forbid')
 
 
 @component_name(f'_Response')
 class JsonRpcResponse(BaseModel):
-    jsonrpc: StrictStr = Field('2.0', const=True, example='2.0')
-    id: Union[StrictStr, int] = Field(None, example=0)
+    jsonrpc: Literal['2.0'] = Field('2.0', json_schema_extra={'example': '2.0'})
+    id: Union[StrictStr, int] = Field(None, json_schema_extra={'example': 0})
     result: dict
 
-    class Config:
-        extra = 'forbid'
+    model_config = ConfigDict(extra='forbid')
 
 
 def invalid_request_from_validation_error(exc: ValidationError) -> InvalidRequest:
-    return InvalidRequest(data={'errors': exc.errors()})
+    return InvalidRequest(data={'errors': exc.errors(include_url=False)})
 
 
-def invalid_params_from_validation_error(exc: ValidationError) -> InvalidParams:
+def invalid_params_from_validation_error(exc: typing.Union[ValidationError, RequestValidationError]) -> InvalidParams:
     errors = []
 
     for err in exc.errors():
-        if err['loc'][:1] == ('body', ):
+        err.pop('url', None)
+
+        if err['loc'][:1] == ('body',):
             err['loc'] = err['loc'][1:]
         else:
             assert err['loc']
-            err['loc'] = (f"<{err['loc'][0]}>", ) + err['loc'][1:]
+            err['loc'] = (f"<{err['loc'][0]}>",) + err['loc'][1:]
         errors.append(err)
 
     return InvalidParams(data={'errors': errors})
@@ -471,43 +496,47 @@ def make_request_model(name, module, body_params: List[ModelField]):
     if whole_params_list:
         assert whole_params_list[0].alias == 'params'
         params_field = whole_params_list[0]
+        params_annotation, params_field_info = params_field.field_info.annotation, params_field.field_info
     else:
-        _JsonRpcRequestParams = ModelMetaclass.__new__(ModelMetaclass, '_JsonRpcRequestParams', (BaseModel,), {})
-
-        for f in body_params:
-            example = f.field_info.example  # noqa
-            if example is not Undefined:
-                f.field_info.extra['example'] = jsonable_encoder(example)
-            examples = f.field_info.extra.get('examples')
-            if examples is not None:
-                f.field_info.extra['examples'] = jsonable_encoder(examples)
-            _JsonRpcRequestParams.__fields__[f.name] = f
-
+        fields = {
+            param.name: (param.field_info.annotation, param.field_info)
+            for param in body_params
+        }
+        _JsonRpcRequestParams = create_model(
+            f'_Params[{name}]',
+            __base__=(BaseModel,),
+            __module__=module,
+            **fields,
+        )
         _JsonRpcRequestParams = component_name(f'_Params[{name}]', module)(_JsonRpcRequestParams)
 
-        params_field = ModelField(
-            name='params',
-            type_=_JsonRpcRequestParams,
-            class_validators={},
-            default=None,
-            required=True,
-            model_config=BaseConfig,
-            field_info=Field(...),
-        )
+        params_annotation = _JsonRpcRequestParams
+        params_field_info = ...
 
-    class _Request(BaseModel):
-        jsonrpc: StrictStr = Field('2.0', const=True, example='2.0')
-        id: Union[StrictStr, int] = Field(None, example=0)
-        method: StrictStr = Field(name, const=True, example=name)
-
-        class Config:
-            extra = 'forbid'
-
-    _Request.__fields__['params'] = params_field
-
+    _Request = create_model(
+        f'_Request[{name}]',
+        __config__=ConfigDict(extra='forbid'),
+        __module__=module,
+        jsonrpc=(Literal['2.0'], Field('2.0', json_schema_extra={'example': '2.0'})),
+        id=(Union[StrictStr, int], Field(None, json_schema_extra={'example': 0})),
+        method=(StrictStr, Field(name, frozen=True, json_schema_extra={'example': name})),
+        params=(params_annotation, params_field_info)
+    )
     _Request = component_name(f'_Request[{name}]', module)(_Request)
 
     return _Request
+
+
+def make_response_model(name, module, result_model):
+    @component_name(f'_Response[{name}]', module)
+    class _Response(BaseModel):
+        jsonrpc: Literal['2.0'] = Field('2.0', json_schema_extra={'example': '2.0'})
+        id: Union[StrictStr, int] = Field(None, json_schema_extra={'example': 0})
+        result: result_model
+
+        model_config = ConfigDict(extra='forbid')
+
+    return _Response
 
 
 class JsonRpcContext:
@@ -573,13 +602,7 @@ class JsonRpcContext:
     @cached_property
     def request(self) -> JsonRpcRequest:
         try:
-            return self.request_class.validate(self.raw_request)
-        except DictError:
-            raise InvalidRequest(data={'errors': [{
-                'loc': (),
-                'type': 'type_error.dict',
-                'msg': "value is not a valid dict",
-            }]})
+            return self.request_class.model_validate(self.raw_request)
         except ValidationError as exc:
             raise invalid_request_from_validation_error(exc)
 
@@ -643,7 +666,6 @@ class JsonRpcContext:
 
 JsonRpcMiddleware = Callable[[JsonRpcContext], AbstractAsyncContextManager]
 
-
 _jsonrpc_context = contextvars.ContextVar('_fastapi_jsonrpc__jsonrpc_context')
 
 
@@ -686,15 +708,7 @@ class MethodRoute(APIRoute):
         flat_dependant = get_flat_dependant(func_dependant, skip_repeats=True)
 
         _Request = make_request_model(name, func.__module__, flat_dependant.body_params)
-
-        @component_name(f'_Response[{name}]', func.__module__)
-        class _Response(BaseModel):
-            jsonrpc: StrictStr = Field('2.0', const=True, example='2.0')
-            id: Union[StrictStr, int] = Field(None, example=0)
-            result: result_model
-
-            class Config:
-                extra = 'forbid'
+        _Response = make_response_model(name, func.__module__, result_model)
 
         # Only needed to generate OpenAPI
         async def endpoint(__request__: _Request):
@@ -908,8 +922,8 @@ class RequestShadow(Request):
     async def json(self):
         return await self.request.json()
 
-    async def form(self):
-        return await self.request.form()
+    async def form(self, **kw):
+        return await self.request.form(**kw)
 
     async def close(self):
         raise NotImplementedError
@@ -1012,7 +1026,7 @@ class EntrypointRoute(APIRoute):
         sub_response: Response,
     ) -> dict:
         # Must not be empty, otherwise FastAPI re-creates it
-        dependency_cache = {(lambda: None, ('', )): 1}
+        dependency_cache = {(lambda: None, ('',)): 1}
         if self.dependencies:
             _, errors, _, _, _ = await solve_dependencies(
                 request=http_request,
@@ -1196,7 +1210,7 @@ class Entrypoint(APIRouter):
         dependencies: Sequence[Depends] = None,
         common_dependencies: Sequence[Depends] = None,
         middlewares: Sequence[JsonRpcMiddleware] = None,
-        scheduler_factory: Callable[..., Awaitable[aiojobs.Scheduler]] = aiojobs.create_scheduler,
+        scheduler_factory: Callable[..., aiojobs.Scheduler] = aiojobs.Scheduler,
         scheduler_kwargs: dict = None,
         request_class: Type[JsonRpcRequest] = JsonRpcRequest,
         **kwargs,
@@ -1242,7 +1256,7 @@ class Entrypoint(APIRouter):
     async def get_scheduler(self):
         if self.scheduler is not None:
             return self.scheduler
-        self.scheduler = await self.scheduler_factory(**(self.scheduler_kwargs or {}))
+        self.scheduler = self.scheduler_factory(**(self.scheduler_kwargs or {}))
         return self.scheduler
 
     async def handle_exception(self, exc) -> dict:
@@ -1474,7 +1488,7 @@ if __name__ == '__main__':
 
     @api_v1.method(errors=[MyError])
     def echo(
-        data: str = Body(..., example='123'),
+        data: str = Body(..., examples=['123']),
     ) -> str:
         if data == 'error':
             raise MyError(data={'details': 'error'})

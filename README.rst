@@ -61,7 +61,7 @@ example1.py
 
     @api_v1.method(errors=[MyError])
     def echo(
-        data: str = Body(..., example='123'),
+        data: str = Body(..., examples=['123']),
     ) -> str:
         if data == 'error':
             raise MyError(data={'details': 'error'})
