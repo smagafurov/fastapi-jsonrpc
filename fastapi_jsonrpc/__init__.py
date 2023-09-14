@@ -10,6 +10,8 @@ from json import JSONDecodeError
 from types import FunctionType
 from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence
 
+from fastapi.openapi.constants import REF_PREFIX
+
 try:
     from typing import Literal
 except ImportError:
@@ -1326,6 +1328,41 @@ class Entrypoint(APIRouter):
 class API(FastAPI):
     def openapi(self):
         result = super().openapi()
+
+        # restore components fine names
+        old2new_schema_name = {}
+
+        fine_schema = {}
+        for key, schema in result['components']['schemas'].items():
+            fine_schema_name = schema['title']
+            old2new_schema_name[key] = fine_schema_name
+            fine_schema[fine_schema_name] = schema
+        result['components']['schemas'] = fine_schema
+
+        def update_refs(value):
+            if not isinstance(value, (dict, list)):
+                return
+
+            if isinstance(value, list):
+                for v in value:
+                    update_refs(v)
+                return
+
+            if '$ref' not in value:
+                for v in value.values():
+                    update_refs(v)
+                return
+
+            ref = value['$ref']
+            if ref.startswith(REF_PREFIX):
+                *_, schema = ref.split(REF_PREFIX)
+                new_schema = old2new_schema_name.get(schema, schema)
+                if new_schema != schema:
+                    ref = f'{REF_PREFIX}{new_schema}'
+                    value['$ref'] = ref
+
+        update_refs(result)
+
         for route in self.routes:
             if isinstance(route, (EntrypointRoute, MethodRoute, )):
                 route: Union[EntrypointRoute, MethodRoute]

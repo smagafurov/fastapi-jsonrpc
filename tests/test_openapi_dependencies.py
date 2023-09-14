@@ -83,7 +83,7 @@ def test_basic(app_client, openapi_compatible):
                             'type': 'integer',
                         },
                         'data': {'anyOf': [
-                            {'$ref': '#/components/schemas/_ErrorData__Error_', },
+                            {'$ref': '#/components/schemas/_ErrorData[_Error]', },
                             {'type': 'null'}
                         ]},
                         'message': {
@@ -105,7 +105,7 @@ def test_basic(app_client, openapi_compatible):
                             'type': 'integer',
                         },
                         'data': {'anyOf': [
-                            {'$ref': '#/components/schemas/_ErrorData__Error_', },
+                            {'$ref': '#/components/schemas/_ErrorData[_Error]', },
                             {'type': 'null'}
                         ]},
                         'message': {
@@ -180,7 +180,7 @@ def test_basic(app_client, openapi_compatible):
                     'title': '_Error',
                     'type': 'object',
                 },
-                '_ErrorData__Error_': {
+                '_ErrorData[_Error]': {
                     'properties': {
                         'errors': {
                             'anyOf': [
@@ -193,7 +193,7 @@ def test_basic(app_client, openapi_compatible):
                     'title': '_ErrorData[_Error]',
                     'type': 'object',
                 },
-                '_ErrorResponse_InternalError_': {
+                '_ErrorResponse[InternalError]': {
                     'additionalProperties': False,
                     'properties': {
                         'error': {
@@ -222,7 +222,7 @@ def test_basic(app_client, openapi_compatible):
                     'title': '_ErrorResponse[InternalError]',
                     'type': 'object',
                 },
-                '_ErrorResponse_InvalidParams_': {
+                '_ErrorResponse[InvalidParams]': {
                     'additionalProperties': False,
                     'properties': {
                         'error': {
@@ -251,7 +251,7 @@ def test_basic(app_client, openapi_compatible):
                     'title': '_ErrorResponse[InvalidParams]',
                     'type': 'object',
                 },
-                '_ErrorResponse_InvalidRequest_': {
+                '_ErrorResponse[InvalidRequest]': {
                     'additionalProperties': False,
                     'properties': {
                         'error': {
@@ -280,7 +280,7 @@ def test_basic(app_client, openapi_compatible):
                     'title': '_ErrorResponse[InvalidRequest]',
                     'type': 'object',
                 },
-                '_ErrorResponse_MethodNotFound_': {
+                '_ErrorResponse[MethodNotFound]': {
                     'additionalProperties': False,
                     'properties': {
                         'error': {
@@ -309,7 +309,7 @@ def test_basic(app_client, openapi_compatible):
                     'title': '_ErrorResponse[MethodNotFound]',
                     'type': 'object',
                 },
-                '_ErrorResponse_ParseError_': {
+                '_ErrorResponse[ParseError]': {
                     'additionalProperties': False,
                     'properties': {
                         'error': {
@@ -338,7 +338,7 @@ def test_basic(app_client, openapi_compatible):
                     'title': '_ErrorResponse[ParseError]',
                     'type': 'object',
                 },
-                '_Params_entrypoint_': {
+                '_Params[entrypoint]': {
                     'properties': {
                         'common_dep': {
                             'title': 'Common Dep',
@@ -349,7 +349,7 @@ def test_basic(app_client, openapi_compatible):
                     'title': '_Params[entrypoint]',
                     'type': 'object',
                 },
-                '_Params_probe2_': {
+                '_Params[probe2]': {
                     'properties': {
                         'common_dep': {
                             'title': 'Common Dep',
@@ -364,7 +364,7 @@ def test_basic(app_client, openapi_compatible):
                     'title': '_Params[probe2]',
                     'type': 'object',
                 },
-                '_Params_probe_': {
+                '_Params[probe]': {
                     'properties': {
                         'common_dep': {
                             'title': 'Common Dep',
@@ -383,7 +383,7 @@ def test_basic(app_client, openapi_compatible):
                     'title': '_Params[probe]',
                     'type': 'object',
                 },
-                '_Request_entrypoint_': {
+                '_Request[entrypoint]': {
                     'additionalProperties': False,
                     'properties': {
                         'id': {
@@ -403,13 +403,13 @@ def test_basic(app_client, openapi_compatible):
                             'title': 'Method',
                             'type': 'string',
                         },
-                        'params': {'$ref': '#/components/schemas/_Params_entrypoint_'}
+                        'params': {'$ref': '#/components/schemas/_Params[entrypoint]'}
                     },
                     'required': ['params'],
                     'title': '_Request[entrypoint]',
                     'type': 'object',
                 },
-                '_Request_probe2_': {
+                '_Request[probe2]': {
                     'additionalProperties': False,
                     'properties': {
                         'id': {
@@ -429,13 +429,13 @@ def test_basic(app_client, openapi_compatible):
                             'title': 'Method',
                             'type': 'string',
                         },
-                        'params': {'$ref': '#/components/schemas/_Params_probe2_'},
+                        'params': {'$ref': '#/components/schemas/_Params[probe2]'},
                     },
                     'required': ['params'],
                     'title': '_Request[probe2]',
                     'type': 'object',
                 },
-                '_Request_probe_': {
+                '_Request[probe]': {
                     'additionalProperties': False,
                     'properties': {
                         'id': {
@@ -463,7 +463,7 @@ def test_basic(app_client, openapi_compatible):
                             'type': 'string',
                         },
                         'params': {
-                            '$ref': '#/components/schemas/_Params_probe_',
+                            '$ref': '#/components/schemas/_Params[probe]',
                         },
                     },
                     'required': ['params'],
@@ -500,7 +500,7 @@ def test_basic(app_client, openapi_compatible):
                     'title': '_Response',
                     'type': 'object',
                 },
-                '_Response_probe2_': {
+                '_Response[probe2]': {
                     'additionalProperties': False,
                     'properties': {
                         'id': {
@@ -523,7 +523,7 @@ def test_basic(app_client, openapi_compatible):
                     'title': '_Response[probe2]',
                     'type': 'object',
                 },
-                '_Response_probe_': {
+                '_Response[probe]': {
                     'additionalProperties': False,
                     'properties': {
                         'id': {
@@ -579,7 +579,7 @@ def test_basic(app_client, openapi_compatible):
                         'content': {
                             'application/json': {
                                 'schema': {
-                                    '$ref': '#/components/schemas/_Request_entrypoint_',
+                                    '$ref': '#/components/schemas/_Request[entrypoint]',
                                 },
                             },
                         },
@@ -596,7 +596,7 @@ def test_basic(app_client, openapi_compatible):
                         'content': {
                             'application/json': {
                                 'schema': {
-                                    '$ref': '#/components/schemas/_Request_probe_',
+                                    '$ref': '#/components/schemas/_Request[probe]',
                                 },
                             },
                         },
@@ -607,7 +607,7 @@ def test_basic(app_client, openapi_compatible):
                             'content': {
                                 'application/json': {
                                     'schema': {
-                                        '$ref': '#/components/schemas/_Response_probe_',
+                                        '$ref': '#/components/schemas/_Response[probe]',
                                     },
                                 },
                             },
@@ -630,13 +630,13 @@ def test_basic(app_client, openapi_compatible):
                         },
                     }],
                     'requestBody': {
-                        'content': {'application/json': {'schema': {'$ref': '#/components/schemas/_Request_probe2_'}}},
+                        'content': {'application/json': {'schema': {'$ref': '#/components/schemas/_Request[probe2]'}}},
                         'required': True,
                     },
                     'responses': {
                         '200': {
                             'content': {
-                                'application/json': {'schema': {'$ref': '#/components/schemas/_Response_probe2_'}},
+                                'application/json': {'schema': {'$ref': '#/components/schemas/_Response[probe2]'}},
                             },
                             'description': 'Successful Response',
                         }
