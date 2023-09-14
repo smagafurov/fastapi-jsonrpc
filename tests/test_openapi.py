@@ -504,7 +504,7 @@ def test_basic(ep, app, app_client, openapi_compatible):
                             },
                             'description': 'Successful Response',
                         },
-                        '200 ': {
+                        '210': {
                             'content': {
                                 'application/json': {
                                     'schema': {
@@ -514,7 +514,7 @@ def test_basic(ep, app, app_client, openapi_compatible):
                             },
                             'description': '[-32602] Invalid params\n\nInvalid method parameter(s)',
                         },
-                        '200  ': {
+                        '211': {
                             'content': {
                                 'application/json': {
                                     'schema': {
@@ -524,7 +524,7 @@ def test_basic(ep, app, app_client, openapi_compatible):
                             },
                             'description': '[-32601] Method not found\n\nThe method does not exist / is not available',
                         },
-                        '200   ': {
+                        '212': {
                             'content': {
                                 'application/json': {
                                     'schema': {
@@ -534,7 +534,7 @@ def test_basic(ep, app, app_client, openapi_compatible):
                             },
                             'description': '[-32700] Parse error\n\nInvalid JSON was received by the server',
                         },
-                        '200    ': {
+                        '213': {
                             'content': {
                                 'application/json': {
                                     'schema': {
@@ -544,7 +544,7 @@ def test_basic(ep, app, app_client, openapi_compatible):
                             },
                             'description': '[-32600] Invalid Request\n\nThe JSON sent is not a valid Request object',
                         },
-                        '200     ': {
+                        '214': {
                             'content': {
                                 'application/json': {
                                     'schema': {
