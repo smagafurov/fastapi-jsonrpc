@@ -298,8 +298,9 @@ def test_empty_batch(echo, json_request):
     assert echo.history == []
 
 
-def test_parse_error(echo, raw_request):
-    resp = raw_request('qwe').json()
+@pytest.mark.parametrize('content', ['qwe', b'\xf1'], ids=['str', 'bytes'])
+def test_non_json__parse_error(echo, raw_request, content):
+    resp = raw_request(content).json()
     assert resp == {
         'error': {
             'code': -32700,

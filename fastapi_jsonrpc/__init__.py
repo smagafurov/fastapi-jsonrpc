@@ -6,7 +6,6 @@ import typing
 from collections import ChainMap
 from collections.abc import Coroutine
 from contextlib import AsyncExitStack, AbstractAsyncContextManager, asynccontextmanager, contextmanager
-from json import JSONDecodeError
 from types import FunctionType
 from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable
 
@@ -737,7 +736,7 @@ class MethodRoute(APIRoute):
     async def parse_body(self, http_request) -> Any:
         try:
             req = await http_request.json()
-        except JSONDecodeError:
+        except ValueError:
             raise ParseError()
         return req
 
@@ -1021,7 +1020,7 @@ class EntrypointRoute(APIRoute):
     async def parse_body(self, http_request) -> Any:
         try:
             body = await http_request.json()
-        except JSONDecodeError:
+        except ValueError:
             raise ParseError()
 
         if isinstance(body, list) and not body:
