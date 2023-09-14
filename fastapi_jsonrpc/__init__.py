@@ -1084,26 +1084,17 @@ class EntrypointRoute(APIRoute):
         else:
             req_list = [body]
 
+        # Run concurrently through scheduler
         job_list = []
-        if len(req_list) > 1:
-            # Run concurrently through scheduler
-            for req in req_list:
-                job = await scheduler.spawn(
-                    self.handle_req_to_resp(
-                        http_request, background_tasks, sub_response, req,
-                        dependency_cache=dependency_cache,
-                        shared_dependencies_error=shared_dependencies_error,
-                    )
+        for req in req_list:
+            job = await scheduler.spawn(
+                self.handle_req_to_resp(
+                    http_request, background_tasks, sub_response, req,
+                    dependency_cache=dependency_cache,
+                    shared_dependencies_error=shared_dependencies_error,
                 )
-                job_list.append(job.wait())
-        else:
-            req = req_list[0]
-            coro = self.handle_req_to_resp(
-                http_request, background_tasks, sub_response, req,
-                dependency_cache=dependency_cache,
-                shared_dependencies_error=shared_dependencies_error,
             )
-            job_list.append(coro)
+            job_list.append(job.wait())
 
         resp_list = []
 
