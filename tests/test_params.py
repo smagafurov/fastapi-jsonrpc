@@ -63,7 +63,7 @@ def test_openapi(app_client, openapi_compatible):
                             'type': 'integer',
                         },
                         'data': {'anyOf': [
-                            {'$ref': '#/components/schemas/_ErrorData__Error_', },
+                            {'$ref': '#/components/schemas/_ErrorData[_Error]', },
                             {'type': 'null'}
                         ]},
                         'message': {
@@ -85,7 +85,7 @@ def test_openapi(app_client, openapi_compatible):
                             'type': 'integer',
                         },
                         'data': {'anyOf': [
-                            {'$ref': '#/components/schemas/_ErrorData__Error_', },
+                            {'$ref': '#/components/schemas/_ErrorData[_Error]', },
                             {'type': 'null'}
                         ]},
                         'message': {
@@ -179,7 +179,7 @@ def test_openapi(app_client, openapi_compatible):
                     'title': '_Error',
                     'type': 'object',
                 },
-                '_ErrorData__Error_': {
+                '_ErrorData[_Error]': {
                     'properties': {
                         'errors': {
                             'anyOf': [
@@ -192,7 +192,7 @@ def test_openapi(app_client, openapi_compatible):
                     'title': '_ErrorData[_Error]',
                     'type': 'object',
                 },
-                '_ErrorResponse_InternalError_': {
+                '_ErrorResponse[InternalError]': {
                     'additionalProperties': False,
                     'properties': {
                         'error': {
@@ -221,7 +221,7 @@ def test_openapi(app_client, openapi_compatible):
                     'title': '_ErrorResponse[InternalError]',
                     'type': 'object',
                 },
-                '_ErrorResponse_InvalidParams_': {
+                '_ErrorResponse[InvalidParams]': {
                     'additionalProperties': False,
                     'properties': {
                         'error': {
@@ -250,7 +250,7 @@ def test_openapi(app_client, openapi_compatible):
                     'title': '_ErrorResponse[InvalidParams]',
                     'type': 'object',
                 },
-                '_ErrorResponse_InvalidRequest_': {
+                '_ErrorResponse[InvalidRequest]': {
                     'additionalProperties': False,
                     'properties': {
                         'error': {
@@ -279,7 +279,7 @@ def test_openapi(app_client, openapi_compatible):
                     'title': '_ErrorResponse[InvalidRequest]',
                     'type': 'object',
                 },
-                '_ErrorResponse_MethodNotFound_': {
+                '_ErrorResponse[MethodNotFound]': {
                     'additionalProperties': False,
                     'properties': {
                         'error': {
@@ -308,7 +308,7 @@ def test_openapi(app_client, openapi_compatible):
                     'title': '_ErrorResponse[MethodNotFound]',
                     'type': 'object',
                 },
-                '_ErrorResponse_ParseError_': {
+                '_ErrorResponse[ParseError]': {
                     'additionalProperties': False,
                     'properties': {
                         'error': {
@@ -371,7 +371,7 @@ def test_openapi(app_client, openapi_compatible):
                     'title': '_Request',
                     'type': 'object',
                 },
-                '_Request_probe_': {
+                '_Request[probe]': {
                     'additionalProperties': False,
                     'properties': {
                         'id': {
@@ -436,7 +436,7 @@ def test_openapi(app_client, openapi_compatible):
                     'title': '_Response',
                     'type': 'object',
                 },
-                '_Response_probe_': {
+                '_Response[probe]': {
                     'additionalProperties': False,
                     'properties': {
                         'id': {
@@ -504,7 +504,7 @@ def test_openapi(app_client, openapi_compatible):
                             'content': {
                                 'application/json': {
                                     'schema': {
-                                        '$ref': '#/components/schemas/_ErrorResponse_InvalidParams_',
+                                        '$ref': '#/components/schemas/_ErrorResponse[InvalidParams]',
                                     },
                                 },
                             },
@@ -514,7 +514,7 @@ def test_openapi(app_client, openapi_compatible):
                             'content': {
                                 'application/json': {
                                     'schema': {
-                                        '$ref': '#/components/schemas/_ErrorResponse_MethodNotFound_',
+                                        '$ref': '#/components/schemas/_ErrorResponse[MethodNotFound]',
                                     },
                                 },
                             },
@@ -524,7 +524,7 @@ def test_openapi(app_client, openapi_compatible):
                             'content': {
                                 'application/json': {
                                     'schema': {
-                                        '$ref': '#/components/schemas/_ErrorResponse_ParseError_',
+                                        '$ref': '#/components/schemas/_ErrorResponse[ParseError]',
                                     },
                                 },
                             },
@@ -534,7 +534,7 @@ def test_openapi(app_client, openapi_compatible):
                             'content': {
                                 'application/json': {
                                     'schema': {
-                                        '$ref': '#/components/schemas/_ErrorResponse_InvalidRequest_',
+                                        '$ref': '#/components/schemas/_ErrorResponse[InvalidRequest]',
                                     },
                                 },
                             },
@@ -544,7 +544,7 @@ def test_openapi(app_client, openapi_compatible):
                             'content': {
                                 'application/json': {
                                     'schema': {
-                                        '$ref': '#/components/schemas/_ErrorResponse_InternalError_',
+                                        '$ref': '#/components/schemas/_ErrorResponse[InternalError]',
                                     },
                                 },
                             },
@@ -561,7 +561,7 @@ def test_openapi(app_client, openapi_compatible):
                         'content': {
                             'application/json': {
                                 'schema': {
-                                    '$ref': '#/components/schemas/_Request_probe_',
+                                    '$ref': '#/components/schemas/_Request[probe]',
                                 },
                             },
                         },
@@ -572,7 +572,7 @@ def test_openapi(app_client, openapi_compatible):
                             'content': {
                                 'application/json': {
                                     'schema': {
-                                        '$ref': '#/components/schemas/_Response_probe_',
+                                        '$ref': '#/components/schemas/_Response[probe]',
                                     },
                                 },
                             },
