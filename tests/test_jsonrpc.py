@@ -1,4 +1,5 @@
 from json import dumps as json_dumps
+from typing import List
 
 import pytest
 from fastapi import Body
@@ -30,8 +31,8 @@ def echo(ep, method_request):
 
     @ep.method()
     def deep_data(
-        data: list[DataItem] = Body(...),
-    ) -> list[DataItem]:
+        data: List[DataItem] = Body(...),
+    ) -> List[DataItem]:
         return data
 
     return echo_info
