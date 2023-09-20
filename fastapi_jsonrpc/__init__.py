@@ -56,6 +56,13 @@ except ImportError:
     sentry_transaction_from_function = None
 
 
+try:
+    from fastapi._compat import _normalize_errors  # noqa
+except ImportError:
+    def _normalize_errors(errors: Sequence[Any]) -> List[Dict[str, Any]]:
+        return errors
+
+
 class Params(fastapi.params.Body):
     def __init__(
         self,
@@ -861,7 +868,7 @@ class MethodRoute(APIRoute):
         )
 
         if errors:
-            raise invalid_params_from_validation_error(RequestValidationError(errors))
+            raise invalid_params_from_validation_error(RequestValidationError(_normalize_errors(errors)))
 
         result = await call_sync_async(self.func, **values)
 
@@ -1014,7 +1021,7 @@ class EntrypointRoute(APIRoute):
                 dependency_cache=dependency_cache,
             )
             if errors:
-                raise invalid_params_from_validation_error(RequestValidationError(errors))
+                raise invalid_params_from_validation_error(RequestValidationError(_normalize_errors(errors)))
         return dependency_cache
 
     async def parse_body(self, http_request) -> Any:
