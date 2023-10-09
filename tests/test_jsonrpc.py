@@ -354,9 +354,10 @@ def test_deep_data_validation(echo, json_request):
             'message': 'Invalid params',
             'data': {'errors': [
                 {
+                    'input': {},
                     'loc': ['data', 0, 'inner_data'],
-                    'msg': 'field required',
-                    'type': 'value_error.missing',
+                    'msg': 'Field required',
+                    'type': 'missing',
                 },
             ]},
         },
