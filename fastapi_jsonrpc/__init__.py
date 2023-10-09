@@ -330,7 +330,7 @@ class BaseError(Exception):
 
 @component_name('_Error')
 class ErrorModel(BaseModel):
-    loc: List[str]
+    loc: List[Union[str, int]]
     msg: str
     type: str
     ctx: Optional[Dict[str, Any]] = None
@@ -397,7 +397,7 @@ def errors_responses(errors: Sequence[Type[BaseError]] = None):
 
 @component_name(f'_Request')
 class JsonRpcRequest(BaseModel):
-    jsonrpc: Literal['2.0'] =  Field('2.0', json_schema_extra={'example': '2.0'})
+    jsonrpc: Literal['2.0'] = Field('2.0', json_schema_extra={'example': '2.0'})
     id: Union[StrictStr, int] = Field(None, json_schema_extra={'example': 0})
     method: StrictStr
     params: dict = Field(default_factory=dict)
@@ -411,7 +411,7 @@ class JsonRpcResponse(BaseModel):
     id: Union[StrictStr, int] = Field(None, json_schema_extra={'example': 0})
     result: dict
 
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra='forbid', json_schema_serialization_defaults_required=True)
 
 
 def invalid_request_from_validation_error(exc: ValidationError) -> InvalidRequest:
@@ -536,7 +536,7 @@ def make_response_model(name, module, result_model):
         id: Union[StrictStr, int] = Field(None, json_schema_extra={'example': 0})
         result: result_model
 
-        model_config = ConfigDict(extra='forbid')
+        model_config = ConfigDict(extra='forbid', json_schema_serialization_defaults_required=True)
 
     return _Response
 

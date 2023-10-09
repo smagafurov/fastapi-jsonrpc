@@ -184,9 +184,10 @@ def test_openapi(app_client, openapi_compatible):
                             'anyOf': [{'type': 'object'}, {'type': 'null'}],
                         },
                         'loc': {
-                            'items': {
-                                'type': 'string',
-                            },
+                            'items': {'anyOf': [
+                                {'type': 'string'},
+                                {'type': 'integer'},
+                            ]},
                             'title': 'Loc',
                             'type': 'array',
                         },
