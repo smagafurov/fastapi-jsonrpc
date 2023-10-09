@@ -1331,25 +1331,17 @@ class API(FastAPI):
     def __init__(
         self,
         *args,
+        fastapi_jsonrpc_components_fine_names: bool = True,
         openrpc_url: Optional[str] = "/openrpc.json",
         **kwargs,
     ):
+        self.fastapi_jsonrpc_components_fine_names = fastapi_jsonrpc_components_fine_names
         self.openrpc_schema = None
         self.openrpc_url = openrpc_url
         super().__init__(*args, **kwargs)
 
     def openapi(self):
         result = super().openapi()
-
-        # restore components fine names
-        old2new_schema_name = {}
-
-        fine_schema = {}
-        for key, schema in result['components']['schemas'].items():
-            fine_schema_name = schema['title']
-            old2new_schema_name[key] = fine_schema_name
-            fine_schema[fine_schema_name] = schema
-        result['components']['schemas'] = fine_schema
 
         def update_refs(value):
             if not isinstance(value, (dict, list)):
@@ -1373,7 +1365,18 @@ class API(FastAPI):
                     ref = f'{REF_PREFIX}{new_schema}'
                     value['$ref'] = ref
 
-        update_refs(result)
+        if self.fastapi_jsonrpc_components_fine_names and 'components' in result:
+            # restore components fine names
+            old2new_schema_name = {}
+
+            fine_schema = {}
+            for key, schema in result['components']['schemas'].items():
+                fine_schema_name = schema['title']
+                old2new_schema_name[key] = fine_schema_name
+                fine_schema[fine_schema_name] = schema
+            result['components']['schemas'] = fine_schema
+
+            update_refs(result)
 
         for route in self.routes:
             if isinstance(route, (EntrypointRoute, MethodRoute, )):

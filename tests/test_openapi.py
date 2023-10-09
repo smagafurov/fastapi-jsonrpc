@@ -1,6 +1,8 @@
 import sys
 
 import pytest
+from starlette.testclient import TestClient
+
 import fastapi_jsonrpc as jsonrpc
 from fastapi import Body
 from typing import List
@@ -710,3 +712,12 @@ def test_entrypoint_tags__append_to_method_tags(app, app_client):
     assert resp_json['paths']['/tagged-entrypoint']['post']['tags'] == ['jsonrpc']
     assert resp_json['paths']['/tagged-entrypoint/not_tagged_method']['post']['tags'] == ['jsonrpc']
     assert resp_json['paths']['/tagged-entrypoint/tagged_method']['post']['tags'] == ['jsonrpc', 'method-tag']
+
+
+@pytest.mark.parametrize('fastapi_jsonrpc_components_fine_names', [True, False])
+def test_no_entrypoints__ok(fastapi_jsonrpc_components_fine_names):
+    app = jsonrpc.API(fastapi_jsonrpc_components_fine_names=fastapi_jsonrpc_components_fine_names)
+    app_client = TestClient(app)
+    resp = app_client.get('/openapi.json')
+    resp.raise_for_status()
+    assert resp.status_code == 200
