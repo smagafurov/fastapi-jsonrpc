@@ -9,6 +9,7 @@ from contextlib import AsyncExitStack, AbstractAsyncContextManager, asynccontext
 from types import FunctionType
 from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable
 
+from pydantic import create_model
 from pydantic import DictError  # noqa
 from pydantic import StrictStr, ValidationError
 from pydantic import BaseModel, BaseConfig
@@ -502,7 +503,7 @@ def make_request_model(name, module, body_params: List[ModelField]):
         class Config:
             extra = 'forbid'
 
-    _Request.__fields__[params_field.name] = params_field
+    _Request.__fields__['params'] = params_field
 
     _Request = component_name(f'_Request[{name}]', module)(_Request)
 
@@ -728,6 +729,8 @@ class MethodRoute(APIRoute):
         self.middlewares = middlewares or []
         self.app = request_response(self.handle_http_request)
         self.request_class = request_class
+        self.result_model = result_model
+        self.params_model = _Request.__fields__['params'].type_
         self.errors = errors or []
 
     def __hash__(self):
@@ -1317,6 +1320,77 @@ class API(FastAPI):
                 for media_type in result['paths'][route.path]:
                     result['paths'][route.path][media_type]['responses'].pop('default', None)
         return result
+
+    def openrpc(self):
+        methods_spec = []
+        schemas_spec = {}
+        ref_template = '#/components/schemas/{model}'
+
+        for route in self.routes:
+            if not isinstance(route, MethodRoute):
+                continue
+
+            params_schema = route.params_model.schema(ref_template=ref_template)
+
+            if isinstance(route.result_model, BaseModel):
+                result_schema = route.result_model.schema(ref_template=ref_template)
+            else:
+                result_model = create_model(f'{route.name}_Result', result=(route.result_model or Any, ...))
+                result_schema = result_model.schema(ref_template=ref_template)
+
+            method_spec = {
+                'name': route.name,
+                'summary': route.summary,
+                'params': [
+                    {
+                        'name': param_name,
+                        'schema': param_schema,
+                        'required': param_name in params_schema.get('required', []),
+                    }
+                    for param_name, param_schema in params_schema['properties'].items()
+                ],
+                'result': {
+                    'name': result_schema['title'],
+                    'schema': result_schema['properties']['result'],
+                },
+                'tags': [
+                    {
+                        'name': tag,
+                    }
+                    for tag in route.tags
+                ],
+                'errors': [
+                    {
+                        'code': error.CODE,
+                        'message': error.MESSAGE,
+                    }
+                    for error in route.errors
+                ],
+            }
+            methods_spec.append(method_spec)
+            schemas_spec.update(params_schema.get('definitions', {}))
+            schemas_spec.update(result_schema.get('definitions', {}))
+
+        return {
+            'openrpc': '1.2.6',
+            'info': {
+                'version': self.version,
+                'title': self.title,
+            },
+            'servers': self.servers,
+            'methods': methods_spec,
+            'components': {
+                'schemas': schemas_spec,
+            },
+        }
+
+    def setup(self) -> None:
+        super().setup()
+
+        async def openrpc(_: Request) -> JSONResponse:
+            return JSONResponse(self.openrpc())
+
+        self.add_route('/openrpc.json', openrpc, include_in_schema=False)
 
     def bind_entrypoint(self, ep: Entrypoint):
         ep.bind_dependency_overrides_provider(self)
