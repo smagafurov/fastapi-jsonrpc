@@ -1338,6 +1338,20 @@ class API(FastAPI):
                 result_model = create_model(f'{route.name}_Result', result=(route.result_model or Any, ...))
                 result_schema = result_model.schema(ref_template=ref_template)
 
+            errors_spec = []
+            for error in route.errors:
+                spec = {
+                    'code': error.CODE,
+                    'message': error.MESSAGE,
+                }
+                error_model = error.get_data_model()
+                if error_model is not None:
+                    error_schema = error_model.schema(ref_template=ref_template)
+                    schemas_spec.update(error_schema.pop('definitions', {}))
+                    spec['data'] = error_schema
+
+                errors_spec.append(spec)
+
             method_spec = {
                 'name': route.name,
                 'summary': route.summary,
@@ -1359,13 +1373,7 @@ class API(FastAPI):
                     }
                     for tag in route.tags
                 ],
-                'errors': [
-                    {
-                        'code': error.CODE,
-                        'message': error.MESSAGE,
-                    }
-                    for error in route.errors
-                ],
+                'errors': errors_spec,
             }
             methods_spec.append(method_spec)
             schemas_spec.update(params_schema.get('definitions', {}))
