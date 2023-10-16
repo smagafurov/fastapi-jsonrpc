@@ -21,7 +21,6 @@ def test_basic(ep, app, app_client):
     assert resp.json()['methods'] == [
         {
             'name': 'probe',
-            'summary': None,
             'params': [
                 {
                     'name': 'data',
@@ -80,7 +79,10 @@ def test_info_block(app, app_client):
         },
         'servers': app.servers,
         'methods': [],
-        'components': {'schemas': {}},
+        'components': {
+            'schemas': {},
+            'errors': {},
+        }
     }
 
 
@@ -155,7 +157,7 @@ def test_component_schemas(ep, app, app_client):
                     'title': 'Y',
                     'maxLength': 5,
                     'minLength': 1,
-                    'pattern': '^[a-z]{4}+$',
+                    'pattern': '^[a-z]{4}$',
                     'type': 'string'
                 }
             },
@@ -217,22 +219,78 @@ def test_errors(ep, app, app_client):
 
     assert len(schema['methods']) == 1
     assert schema['methods'][0]['errors'] == [
-        {
-            'code': 5000,
-            'message': 'My error',
-            'data': {
-                'title': 'MyError.Data',
-                'type': 'object',
-                'properties': {
-                    'details': {
-                        'title': 'Details',
-                        'type': 'string'
-                    }
-                },
-                'required': ['details']
-            }
-        }
+        {'$ref': '#/components/errors/5000'},
     ]
+    assert schema['components']['errors']['5000'] == {
+        'code': 5000,
+        'message': 'My error',
+        'data': {
+            'title': 'MyError.Data',
+            'type': 'object',
+            'properties': {
+                'details': {
+                    'title': 'Details',
+                    'type': 'string'
+                }
+            },
+            'required': ['details']
+        }
+    }
+
+
+def test_errors_merging(ep, app, app_client):
+    class FirstError(jsonrpc.BaseError):
+        CODE = 5000
+        MESSAGE = 'My error'
+
+        class DataModel(BaseModel):
+            x: str
+
+    class SecondError(jsonrpc.BaseError):
+        CODE = 5000
+        MESSAGE = 'My error'
+
+        class DataModel(BaseModel):
+            y: int
+
+    @ep.method(errors=[FirstError, SecondError])
+    def my_method__with_mergeable_errors() -> None:
+        return None
+
+    app.bind_entrypoint(ep)
+
+    resp = app_client.get('/openrpc.json')
+    schema = resp.json()
+
+    assert len(schema['methods']) == 1
+    assert schema['methods'][0]['errors'] == [{'$ref': '#/components/errors/5000'}]
+    assert schema['components']['errors']['5000'] == {
+        'code': 5000,
+        'message': 'My error',
+        'data': {
+            'title': 'ERROR_5000',
+            'anyOf': [
+                {'$ref': '#/components/schemas/FirstError.Data'},
+                {'$ref': '#/components/schemas/SecondError.Data'},
+            ],
+        }
+    }
+    assert schema['components']['schemas']['FirstError.Data'] == {
+        'title': 'FirstError.Data',
+        'type': 'object',
+        'properties': {
+            'x': {'type': 'string', 'title': 'X'},
+        },
+        'required': ['x']
+    }
+    assert schema['components']['schemas']['SecondError.Data'] == {
+        'title': 'SecondError.Data',
+        'type': 'object',
+        'properties': {
+            'y': {'type': 'integer', 'title': 'Y'},
+        },
+        'required': ['y']
+    }
 
 
 def test_type_hints(ep, app, app_client):
@@ -251,28 +309,28 @@ def test_type_hints(ep, app, app_client):
     assert len(schema['methods']) == 1
     assert schema['methods'][0]['params' ] == [
         {
-            "name": "arg",
-            "schema": {
-                "title": "Arg",
-                "type": "array",
-                "items": {
-                    "type": "string"
+            'name': 'arg',
+            'schema': {
+                'title': 'Arg',
+                'type': 'array',
+                'items': {
+                    'type': 'string'
                 }
             },
-            "required": True
+            'required': True
         }
     ]
     assert schema['methods'][0]['result'] == {
-        "name": "my_method__with_typehints_Result",
-        "schema": {
-            "title": "Result",
-            "type": "object",
-            "additionalProperties": {
-                "type": "array",
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "type": "number"
+        'name': 'my_method__with_typehints_Result',
+        'schema': {
+            'title': 'Result',
+            'type': 'object',
+            'additionalProperties': {
+                'type': 'array',
+                'items': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'number'
                     }
                 }
             }
