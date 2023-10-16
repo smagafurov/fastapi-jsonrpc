@@ -3,13 +3,13 @@ import contextvars  # noqa
 import inspect
 import logging
 import typing
-from collections import ChainMap
+from collections import ChainMap, defaultdict
 from collections.abc import Coroutine
 from contextlib import AsyncExitStack, AbstractAsyncContextManager, asynccontextmanager, contextmanager
 from types import FunctionType
 from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Awaitable
 
-from pydantic import create_model
+from pydantic import create_model, schema_of
 from pydantic import DictError  # noqa
 from pydantic import StrictStr, ValidationError
 from pydantic import BaseModel, BaseConfig
@@ -1324,6 +1324,7 @@ class API(FastAPI):
     def openrpc(self):
         methods_spec = []
         schemas_spec = {}
+        errors_by_code = defaultdict(set)
         ref_template = '#/components/schemas/{model}'
 
         for route in self.routes:
@@ -1338,23 +1339,11 @@ class API(FastAPI):
                 result_model = create_model(f'{route.name}_Result', result=(route.result_model or Any, ...))
                 result_schema = result_model.schema(ref_template=ref_template)
 
-            errors_spec = []
             for error in route.errors:
-                spec = {
-                    'code': error.CODE,
-                    'message': error.MESSAGE,
-                }
-                error_model = error.get_data_model()
-                if error_model is not None:
-                    error_schema = error_model.schema(ref_template=ref_template)
-                    schemas_spec.update(error_schema.pop('definitions', {}))
-                    spec['data'] = error_schema
-
-                errors_spec.append(spec)
+                errors_by_code[error.CODE].add(error)
 
             method_spec = {
                 'name': route.name,
-                'summary': route.summary,
                 'params': [
                     {
                         'name': param_name,
@@ -1373,11 +1362,52 @@ class API(FastAPI):
                     }
                     for tag in route.tags
                 ],
-                'errors': errors_spec,
+                'errors': [
+                    {
+                        '$ref': f'#/components/errors/{code}',
+                    }
+                    for code in sorted({error.CODE for error in route.errors})
+                ],
             }
+            if route.summary:
+                method_spec['summary'] = route.summary
+
             methods_spec.append(method_spec)
             schemas_spec.update(params_schema.get('definitions', {}))
             schemas_spec.update(result_schema.get('definitions', {}))
+
+        errors_spec = {}
+        for code, errors in errors_by_code.items():
+            assert errors
+            first, *_ = errors
+            spec = {
+                'code': code,
+                'message': first.MESSAGE,
+            }
+
+            error_models = []
+            for error in errors:
+                error_model = error.get_data_model()
+                if error_model is not None:
+                    error_models.append(error_model)
+
+            if error_models:
+                if len(error_models) == 1:
+                    error_schema = error_models[0].schema(ref_template=ref_template)
+                else:
+                    # Data schemes of multiple error objects with same code
+                    # are merged together in a single schema
+                    error_models.sort(key=lambda m: m.__name__)
+                    error_schema = schema_of(
+                        Union[tuple(error_models)],
+                        title=f'ERROR_{code}',
+                        ref_template=ref_template,
+                    )
+
+                schemas_spec.update(error_schema.pop('definitions', {}))
+                spec['data'] = error_schema
+
+            errors_spec[str(code)] = spec
 
         return {
             'openrpc': '1.2.6',
@@ -1389,6 +1419,7 @@ class API(FastAPI):
             'methods': methods_spec,
             'components': {
                 'schemas': schemas_spec,
+                'errors': errors_spec,
             },
         }
 
