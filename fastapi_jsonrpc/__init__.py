@@ -1312,6 +1312,16 @@ class Entrypoint(APIRouter):
 
 
 class API(FastAPI):
+    def __init__(
+        self,
+        *args,
+        openrpc_url: Optional[str] = "/openrpc.json",
+        **kwargs,
+    ):
+        self.openrpc_schema = None
+        self.openrpc_url = openrpc_url
+        super().__init__(*args, **kwargs)
+
     def openapi(self):
         result = super().openapi()
         for route in self.routes:
@@ -1321,7 +1331,7 @@ class API(FastAPI):
                     result['paths'][route.path][media_type]['responses'].pop('default', None)
         return result
 
-    def openrpc(self):
+    def get_openrpc(self):
         methods_spec = []
         schemas_spec = {}
         errors_by_code = defaultdict(set)
@@ -1423,13 +1433,22 @@ class API(FastAPI):
             },
         }
 
+    def openrpc(self):
+        if self.openrpc_schema is None:
+            self.openrpc_schema = self.get_openrpc()
+        return self.openrpc_schema
+
     def setup(self) -> None:
         super().setup()
 
-        async def openrpc(_: Request) -> JSONResponse:
-            return JSONResponse(self.openrpc())
+        if self.openrpc_url:
+            assert self.title, "A title must be provided for OpenRPC, e.g.: 'My API'"
+            assert self.version, "A version must be provided for OpenRPC, e.g.: '2.1.0'"
 
-        self.add_route('/openrpc.json', openrpc, include_in_schema=False)
+            async def openrpc(_: Request) -> JSONResponse:
+                return JSONResponse(self.openrpc())
+
+            self.add_route(self.openrpc_url, openrpc, include_in_schema=False)
 
     def bind_entrypoint(self, ep: Entrypoint):
         ep.bind_dependency_overrides_provider(self)
