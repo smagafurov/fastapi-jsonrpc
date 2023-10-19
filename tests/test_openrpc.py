@@ -1,5 +1,8 @@
 from typing import Dict, List, Optional
 
+import pytest
+from starlette.testclient import TestClient
+
 import fastapi_jsonrpc as jsonrpc
 from fastapi import Body
 from pydantic import BaseModel, Field, Extra
@@ -9,7 +12,7 @@ def test_basic(ep, app, app_client):
     @ep.method()
     def probe(
         data: List[str] = Body(..., examples=['111', '222']),
-        amount: int = Body(..., gt=5, example=10),
+        amount: int = Body(..., gt=5, examples=[10]),
     ) -> List[int]:
         del data, amount
         return [1, 2, 3]
@@ -42,7 +45,7 @@ def test_basic(ep, app, app_client):
                     'schema': {
                         'title': 'Amount',
                         'exclusiveMinimum': 5,
-                        'example': 10,
+                        'examples': [10],
                         'type': 'integer'
                     },
                     'required': True
@@ -101,7 +104,7 @@ def test_component_schemas(ep, app, app_client):
             alias='Y',
             min_length=1,
             max_length=5,
-            regex=r'^[a-z]{4}$',
+            pattern=r'^[a-z]{4}$',
         )
         class Config:
             extra = Extra.forbid
@@ -154,11 +157,17 @@ def test_component_schemas(ep, app, app_client):
                     'type': 'integer'
                 },
                 'Y': {
-                    'title': 'Y',
-                    'maxLength': 5,
-                    'minLength': 1,
-                    'pattern': '^[a-z]{4}$',
-                    'type': 'string'
+                    'anyOf': [
+                        {
+                            'maxLength': 5,
+                            'minLength': 1,
+                            'pattern': '^[a-z]{4}$',
+                            'type': 'string'
+                        },
+                        {'type': 'null'}
+                    ],
+                    'default': None,
+                    'title': 'Y'
                 }
             },
             'required': ['x'],
@@ -336,3 +345,12 @@ def test_type_hints(ep, app, app_client):
             }
         }
     }
+
+
+@pytest.mark.parametrize('fastapi_jsonrpc_components_fine_names', [True, False])
+def test_no_entrypoints__ok(fastapi_jsonrpc_components_fine_names):
+    app = jsonrpc.API(fastapi_jsonrpc_components_fine_names=fastapi_jsonrpc_components_fine_names)
+    app_client = TestClient(app)
+    resp = app_client.get('/openrpc.json')
+    resp.raise_for_status()
+    assert resp.status_code == 200
