@@ -11,6 +11,8 @@ JSON-RPC server based on fastapi:
 
     https://fastapi.tiangolo.com
 
+OpenRPC supported too.
+
 Motivation
 ^^^^^^^^^^
 
@@ -40,7 +42,11 @@ example1.py
 .. include:: example1.py
     :code: python
 
-Go to:
+OpenRPC:
+
+    http://127.0.0.1:5000/openrpc.json
+
+Swagger:
 
     http://127.0.0.1:5000/docs
 
@@ -56,7 +62,11 @@ example2.py
 .. include:: example2.py
     :code: python
 
-Go to:
+OpenRPC:
+
+    http://127.0.0.1:5000/openrpc.json
+
+Swagger:
 
     http://127.0.0.1:5000/docs
 
