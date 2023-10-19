@@ -9,6 +9,7 @@ from contextlib import AsyncExitStack, AbstractAsyncContextManager, asynccontext
 from types import FunctionType
 from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence
 
+import pydantic
 from fastapi.openapi.constants import REF_PREFIX
 
 try:
@@ -746,7 +747,7 @@ class MethodRoute(APIRoute):
         self.app = request_response(self.handle_http_request)
         self.request_class = request_class
         self.result_model = result_model
-        self.params_model = _Request.__fields__['params'].type_
+        self.params_model = _Request.model_fields['params'].annotation
         self.errors = errors or []
 
     def __hash__(self):
@@ -1340,9 +1341,7 @@ class API(FastAPI):
         self.openrpc_url = openrpc_url
         super().__init__(*args, **kwargs)
 
-    def openapi(self):
-        result = super().openapi()
-
+    def _restore_json_schema_fine_component_names(self, data: dict):
         def update_refs(value):
             if not isinstance(value, (dict, list)):
                 return
@@ -1365,18 +1364,23 @@ class API(FastAPI):
                     ref = f'{REF_PREFIX}{new_schema}'
                     value['$ref'] = ref
 
+        # restore components fine names
+        old2new_schema_name = {}
+
+        fine_schema = {}
+        for key, schema in data['components']['schemas'].items():
+            fine_schema_name = schema['title']
+            old2new_schema_name[key] = fine_schema_name
+            fine_schema[fine_schema_name] = schema
+        data['components']['schemas'] = fine_schema
+
+        update_refs(data)
+
+    def openapi(self):
+        result = super().openapi()
+
         if self.fastapi_jsonrpc_components_fine_names and 'components' in result:
-            # restore components fine names
-            old2new_schema_name = {}
-
-            fine_schema = {}
-            for key, schema in result['components']['schemas'].items():
-                fine_schema_name = schema['title']
-                old2new_schema_name[key] = fine_schema_name
-                fine_schema[fine_schema_name] = schema
-            result['components']['schemas'] = fine_schema
-
-            update_refs(result)
+            self._restore_json_schema_fine_component_names(result)
 
         for route in self.routes:
             if isinstance(route, (EntrypointRoute, MethodRoute, )):
@@ -1395,13 +1399,13 @@ class API(FastAPI):
             if not isinstance(route, MethodRoute):
                 continue
 
-            params_schema = route.params_model.schema(ref_template=ref_template)
+            params_schema = route.params_model.model_json_schema(ref_template=ref_template)
 
             if isinstance(route.result_model, BaseModel):
-                result_schema = route.result_model.schema(ref_template=ref_template)
+                result_schema = route.result_model.model_json_schema(ref_template=ref_template)
             else:
                 result_model = create_model(f'{route.name}_Result', result=(route.result_model or Any, ...))
-                result_schema = result_model.schema(ref_template=ref_template)
+                result_schema = result_model.model_json_schema(ref_template=ref_template)
 
             for error in route.errors:
                 errors_by_code[error.CODE].add(error)
@@ -1437,8 +1441,8 @@ class API(FastAPI):
                 method_spec['summary'] = route.summary
 
             methods_spec.append(method_spec)
-            schemas_spec.update(params_schema.get('definitions', {}))
-            schemas_spec.update(result_schema.get('definitions', {}))
+            schemas_spec.update(params_schema.get('$defs', {}))
+            schemas_spec.update(result_schema.get('$defs', {}))
 
         errors_spec = {}
         for code, errors in errors_by_code.items():
@@ -1462,13 +1466,12 @@ class API(FastAPI):
                     # Data schemes of multiple error objects with same code
                     # are merged together in a single schema
                     error_models.sort(key=lambda m: m.__name__)
-                    error_schema = schema_of(
-                        Union[tuple(error_models)],
-                        title=f'ERROR_{code}',
+                    error_schema = pydantic.TypeAdapter(Union[tuple(error_models)]).json_schema(
                         ref_template=ref_template,
                     )
+                    error_schema['title'] = f'ERROR_{code}'
 
-                schemas_spec.update(error_schema.pop('definitions', {}))
+                schemas_spec.update(error_schema.pop('$defs', {}))
                 spec['data'] = error_schema
 
             errors_spec[str(code)] = spec
@@ -1490,6 +1493,10 @@ class API(FastAPI):
     def openrpc(self):
         if self.openrpc_schema is None:
             self.openrpc_schema = self.get_openrpc()
+
+        if self.fastapi_jsonrpc_components_fine_names and 'components' in self.openrpc_schema:
+            self._restore_json_schema_fine_component_names(self.openrpc_schema)
+
         return self.openrpc_schema
 
     def setup(self) -> None:
