@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fastapi-jsonrpc"
-version = "3.0.0"
+version = "3.0.1"
 description = "JSON-RPC server based on fastapi"
 license = "MIT"
 authors = ["Sergey Magafurov <magafurov@tochka.com>"]
