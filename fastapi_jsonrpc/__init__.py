@@ -1236,8 +1236,10 @@ class Entrypoint(APIRouter):
         return self.entrypoint_route.common_dependencies
 
     async def shutdown(self):
-        if self.scheduler is not None:
-            await self.scheduler.close()
+        scheduler = self.scheduler
+        self.scheduler = None
+        if scheduler is not None:
+            await scheduler.close()
 
     async def get_scheduler(self):
         if self.scheduler is not None:
