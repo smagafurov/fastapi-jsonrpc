@@ -784,23 +784,25 @@ class MethodRoute(APIRoute):
         sub_response: Response,
         body: Any,
     ) -> dict:
-        # Shared dependencies for all requests in one json-rpc batch request
-        shared_dependencies_error = None
-        try:
-            dependency_cache = await self.entrypoint.solve_shared_dependencies(
-                http_request,
-                background_tasks,
-                sub_response,
-            )
-        except BaseError as error:
-            shared_dependencies_error = error
-            dependency_cache = None
+        async with AsyncExitStack() as async_exit_stack:
+            # Shared dependencies for all requests in one json-rpc batch request
+            shared_dependencies_error = None
+            try:
+                dependency_cache = await self.entrypoint.solve_shared_dependencies(
+                    http_request,
+                    background_tasks,
+                    sub_response,
+                    async_exit_stack=async_exit_stack,
+                )
+            except BaseError as error:
+                shared_dependencies_error = error
+                dependency_cache = None
 
-        resp = await self.handle_req_to_resp(
-            http_request, background_tasks, sub_response, body,
-            dependency_cache=dependency_cache,
-            shared_dependencies_error=shared_dependencies_error,
-        )
+            resp = await self.handle_req_to_resp(
+                http_request, background_tasks, sub_response, body,
+                dependency_cache=dependency_cache,
+                shared_dependencies_error=shared_dependencies_error,
+            )
 
         # No response for successful notifications
         has_content = 'error' in resp or 'id' in resp
@@ -868,6 +870,7 @@ class MethodRoute(APIRoute):
             response=sub_response,
             dependency_overrides_provider=self.dependency_overrides_provider,
             dependency_cache=dependency_cache,
+            async_exit_stack=ctx.exit_stack,
         )
 
         if errors:
@@ -1010,6 +1013,7 @@ class EntrypointRoute(APIRoute):
         http_request: Request,
         background_tasks: BackgroundTasks,
         sub_response: Response,
+        async_exit_stack: AsyncExitStack,
     ) -> dict:
         # Must not be empty, otherwise FastAPI re-creates it
         dependency_cache = {(lambda: None, ('', )): 1}
@@ -1022,6 +1026,7 @@ class EntrypointRoute(APIRoute):
                 response=sub_response,
                 dependency_overrides_provider=self.dependency_overrides_provider,
                 dependency_cache=dependency_cache,
+                async_exit_stack=async_exit_stack,
             )
             if errors:
                 raise invalid_params_from_validation_error(RequestValidationError(_normalize_errors(errors)))
@@ -1074,46 +1079,48 @@ class EntrypointRoute(APIRoute):
         sub_response: Response,
         body: Any,
     ) -> dict:
-        # Shared dependencies for all requests in one json-rpc batch request
-        shared_dependencies_error = None
-        try:
-            dependency_cache = await self.solve_shared_dependencies(
-                http_request,
-                background_tasks,
-                sub_response,
-            )
-        except BaseError as error:
-            shared_dependencies_error = error
-            dependency_cache = None
-
-        scheduler = await self.entrypoint.get_scheduler()
-
-        if isinstance(body, list):
-            req_list = body
-        else:
-            req_list = [body]
-
-        # Run concurrently through scheduler
-        job_list = []
-        for req in req_list:
-            job = await scheduler.spawn(
-                self.handle_req_to_resp(
-                    http_request, background_tasks, sub_response, req,
-                    dependency_cache=dependency_cache,
-                    shared_dependencies_error=shared_dependencies_error,
+        async with AsyncExitStack() as async_exit_stack:
+            # Shared dependencies for all requests in one json-rpc batch request
+            shared_dependencies_error = None
+            try:
+                dependency_cache = await self.solve_shared_dependencies(
+                    http_request,
+                    background_tasks,
+                    sub_response,
+                    async_exit_stack=async_exit_stack,
                 )
-            )
-            job_list.append(job.wait())
+            except BaseError as error:
+                shared_dependencies_error = error
+                dependency_cache = None
 
-        resp_list = []
+            scheduler = await self.entrypoint.get_scheduler()
 
-        for resp in await asyncio.gather(*job_list):
-            # No response for successful notifications
-            has_content = 'error' in resp or 'id' in resp
-            if not has_content:
-                continue
+            if isinstance(body, list):
+                req_list = body
+            else:
+                req_list = [body]
 
-            resp_list.append(resp)
+            # Run concurrently through scheduler
+            job_list = []
+            for req in req_list:
+                job = await scheduler.spawn(
+                    self.handle_req_to_resp(
+                        http_request, background_tasks, sub_response, req,
+                        dependency_cache=dependency_cache,
+                        shared_dependencies_error=shared_dependencies_error,
+                    )
+                )
+                job_list.append(job.wait())
+
+            resp_list = []
+
+            for resp in await asyncio.gather(*job_list):
+                # No response for successful notifications
+                has_content = 'error' in resp or 'id' in resp
+                if not has_content:
+                    continue
+
+                resp_list.append(resp)
 
         if not resp_list:
             raise NoContent
@@ -1271,11 +1278,13 @@ class Entrypoint(APIRouter):
         http_request: Request,
         background_tasks: BackgroundTasks,
         sub_response: Response,
+        async_exit_stack: AsyncExitStack,
     ) -> dict:
         return await self.entrypoint_route.solve_shared_dependencies(
             http_request,
             background_tasks,
             sub_response,
+            async_exit_stack=async_exit_stack,
         )
 
     def add_method_route(
