@@ -5,7 +5,7 @@ from starlette.testclient import TestClient
 
 import fastapi_jsonrpc as jsonrpc
 from fastapi import Body
-from pydantic import BaseModel, Field, Extra
+from pydantic import BaseModel, Field, ConfigDict
 
 
 def test_basic(ep, app, app_client):
@@ -106,15 +106,13 @@ def test_component_schemas(ep, app, app_client):
             max_length=5,
             pattern=r'^[a-z]{4}$',
         )
-        class Config:
-            extra = Extra.forbid
-
+        model_config = ConfigDict(extra='forbid')
 
     class Output(BaseModel):
         result: List[int] = Field(
             ...,
-            min_items=1,
-            max_items=10,
+            min_length=1,
+            max_length=10,
         )
 
     @ep.method()
