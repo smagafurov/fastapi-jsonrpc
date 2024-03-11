@@ -1350,7 +1350,9 @@ class API(FastAPI):
         self.fastapi_jsonrpc_components_fine_names = fastapi_jsonrpc_components_fine_names
         self.openrpc_schema = None
         self.openrpc_url = openrpc_url
+        self.shutdown_functions: List = []
         super().__init__(*args, **kwargs)
+        self.add_event_handler("shutdown", self.run_shutdown_functions)
 
     def _restore_json_schema_fine_component_names(self, data: dict):
         def update_refs(value):
@@ -1472,7 +1474,7 @@ class API(FastAPI):
 
             if error_models:
                 if len(error_models) == 1:
-                    error_schema = error_models[0].schema(ref_template=ref_template)
+                    error_schema = error_models[0].model_json_schema(ref_template=ref_template)
                 else:
                     # Data schemes of multiple error objects with same code
                     # are merged together in a single schema
@@ -1522,10 +1524,15 @@ class API(FastAPI):
 
             self.add_route(self.openrpc_url, openrpc, include_in_schema=False)
 
-    def bind_entrypoint(self, ep: Entrypoint):
+    def bind_entrypoint(self, ep):
         ep.bind_dependency_overrides_provider(self)
         self.routes.extend(ep.routes)
-        self.on_event('shutdown')(ep.shutdown)
+        if hasattr(ep, 'shutdown') and callable(ep.shutdown):
+            self.shutdown_functions.append(ep.shutdown)
+
+    async def run_shutdown_functions(self):
+        for shutdown_function in self.shutdown_functions:
+            await shutdown_function()
 
 
 if __name__ == '__main__':
