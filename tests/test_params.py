@@ -214,8 +214,10 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
+                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
+                            'type': 'string',
                         },
                     },
                     'required': ['error'],
@@ -243,8 +245,10 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
+                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
+                            'type': 'string',
                         },
                     },
                     'required': ['error'],
@@ -272,8 +276,10 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
+                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
+                            'type': 'string',
                         },
                     },
                     'required': ['error'],
@@ -301,8 +307,10 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
+                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
+                            'type': 'string',
                         },
                     },
                     'required': ['error'],
@@ -330,8 +338,10 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
+                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
+                            'type': 'string',
                         },
                     },
                     'required': ['error'],
@@ -356,8 +366,10 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
+                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
+                            'type': 'string',
                         },
                         'method': {
                             'title': 'Method',
@@ -390,8 +402,10 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
+                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
+                            'type': 'string',
                         },
                         'method': {
                             'default': 'probe',
@@ -425,8 +439,10 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
+                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
+                            'type': 'string',
                         },
                         'result': {
                             'title': 'Result',
@@ -455,8 +471,10 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
+                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
+                            'type': 'string',
                         },
                         'result': {
                             'items': {

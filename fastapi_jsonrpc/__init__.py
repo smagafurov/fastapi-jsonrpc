@@ -10,6 +10,7 @@ from types import FunctionType
 from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence
 
 import pydantic
+from fastapi.dependencies.utils import _should_embed_body_fields  # noqa
 from fastapi.openapi.constants import REF_PREFIX
 
 try:
@@ -17,7 +18,7 @@ try:
 except ImportError:
     from typing_extensions import Literal
 
-from fastapi._compat import ModelField, Undefined
+from fastapi._compat import ModelField, Undefined  # noqa
 from fastapi.dependencies.models import Dependant
 from fastapi.encoders import jsonable_encoder
 from fastapi.params import Depends
@@ -26,7 +27,7 @@ from fastapi.dependencies.utils import solve_dependencies, get_dependant, get_fl
     get_parameterless_sub_dependant
 from fastapi.exceptions import RequestValidationError, HTTPException
 from fastapi.routing import APIRoute, APIRouter, serialize_response
-from pydantic import BaseModel, ValidationError, StrictStr, Field, create_model, schema_of, ConfigDict
+from pydantic import BaseModel, ValidationError, StrictStr, Field, create_model, ConfigDict
 from starlette.background import BackgroundTasks
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
@@ -741,6 +742,7 @@ class MethodRoute(APIRoute):
         self.dependant.security_requirements = func_dependant.security_requirements
 
         self.func = func
+        self.flat_dependant = flat_dependant
         self.func_dependant = func_dependant
         self.entrypoint = entrypoint
         self.middlewares = middlewares or []
@@ -879,7 +881,7 @@ class MethodRoute(APIRoute):
         # But if the methods have their own dependencies, they are resolved separately.
         dependency_cache = dependency_cache.copy()
 
-        values, errors, background_tasks, _, _ = await solve_dependencies(
+        solved_dependency = await solve_dependencies(
             request=http_request,
             dependant=self.func_dependant,
             body=ctx.request.params,
@@ -888,12 +890,15 @@ class MethodRoute(APIRoute):
             dependency_overrides_provider=self.dependency_overrides_provider,
             dependency_cache=dependency_cache,
             async_exit_stack=ctx.exit_stack,
+            embed_body_fields=_should_embed_body_fields(self.flat_dependant.body_params),
         )
 
-        if errors:
-            raise invalid_params_from_validation_error(RequestValidationError(_normalize_errors(errors)))
+        if solved_dependency.errors:
+            raise invalid_params_from_validation_error(
+                RequestValidationError(_normalize_errors(solved_dependency.errors))
+            )
 
-        result = await call_sync_async(self.func, **values)
+        result = await call_sync_async(self.func, **solved_dependency.values)
 
         response = {
             'jsonrpc': '2.0',
@@ -1035,7 +1040,7 @@ class EntrypointRoute(APIRoute):
         # Must not be empty, otherwise FastAPI re-creates it
         dependency_cache = {(lambda: None, ('',)): 1}
         if self.dependencies:
-            _, errors, _, _, _ = await solve_dependencies(
+            solved_dependency = await solve_dependencies(
                 request=http_request,
                 dependant=self.shared_dependant,
                 body=None,
@@ -1044,9 +1049,12 @@ class EntrypointRoute(APIRoute):
                 dependency_overrides_provider=self.dependency_overrides_provider,
                 dependency_cache=dependency_cache,
                 async_exit_stack=async_exit_stack,
+                embed_body_fields=False,
             )
-            if errors:
-                raise invalid_params_from_validation_error(RequestValidationError(_normalize_errors(errors)))
+            if solved_dependency.errors:
+                raise invalid_params_from_validation_error(
+                    RequestValidationError(_normalize_errors(solved_dependency.errors))
+                )
         return dependency_cache
 
     async def parse_body(self, http_request) -> Any:

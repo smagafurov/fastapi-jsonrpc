@@ -277,12 +277,12 @@ def test_errors_merging(ep, app, app_client):
         'data': {
             'title': 'ERROR_5000',
             'anyOf': [
-                {'$ref': '#/components/schemas/FirstError.Data'},
-                {'$ref': '#/components/schemas/SecondError.Data'},
+                {'$ref': '#/components/schemas/test_openrpc.FirstError.Data'},
+                {'$ref': '#/components/schemas/test_openrpc.SecondError.Data'},
             ],
         }
     }
-    assert schema['components']['schemas']['FirstError.Data'] == {
+    assert schema['components']['schemas']['test_openrpc.FirstError.Data'] == {
         'title': 'FirstError.Data',
         'type': 'object',
         'properties': {
@@ -290,7 +290,7 @@ def test_errors_merging(ep, app, app_client):
         },
         'required': ['x']
     }
-    assert schema['components']['schemas']['SecondError.Data'] == {
+    assert schema['components']['schemas']['test_openrpc.SecondError.Data'] == {
         'title': 'SecondError.Data',
         'type': 'object',
         'properties': {
