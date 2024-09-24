@@ -678,10 +678,10 @@ def test_no_collide(app_client):
 
     if '_Params[probe]' not in schemas:
         for component_name in (
-            'api__mobile___Params[probe]',
-            'api__mobile___Request[probe]',
-            'api__web___Params[probe]',
-            'api__web___Request[probe]',
+            'api.mobile._Params[probe]',
+            'api.mobile._Request[probe]',
+            'api.web._Params[probe]',
+            'api.web._Request[probe]',
         ):
             assert component_name in schemas
 ''')

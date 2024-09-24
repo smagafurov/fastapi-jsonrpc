@@ -1382,7 +1382,7 @@ class API(FastAPI):
 
         fine_schema = {}
         for key, schema in data['components']['schemas'].items():
-            fine_schema_name = schema['title']
+            fine_schema_name = key[:-len(schema['title'].replace('.', '__'))].replace('__', '.') + schema['title']
             old2new_schema_name[key] = fine_schema_name
             fine_schema[fine_schema_name] = schema
         data['components']['schemas'] = fine_schema
