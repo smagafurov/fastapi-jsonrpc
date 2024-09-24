@@ -14,10 +14,10 @@ exclude = ["example1.py", "example2.py"]
 python = "^3.8"
 aiojobs = ">=1.1.0"
 fastapi = [
-    {version = ">=0.106.0"},
+    {version = ">=0.112.4"},
 ]
 pydantic = [
-    {version = ">=2.0.0"},
+    {version = ">=2.7.0"},
     {version = "<3.0.0"},
 ]
 starlette = ">0.0.0"
