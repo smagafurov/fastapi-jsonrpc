@@ -1,11 +1,17 @@
 """Test fixtures copied from https://github.com/getsentry/sentry-python/
 TODO: move integration to sentry_sdk
 """
+import importlib.metadata
 
 import pytest
 import sentry_sdk
 from sentry_sdk import Transport
 from sentry_sdk.envelope import Envelope
+
+
+sentry_sdk_version = importlib.metadata.version('sentry_sdk')
+if not sentry_sdk_version.startswith('2.'):
+    pytest.skip(f"Testset is only for sentry_sdk 2.x, given {sentry_sdk_version=}", allow_module_level=True)
 
 
 @pytest.fixture
@@ -58,7 +64,7 @@ def test_transaction_is_jsonrpc_method(
 
     assert set([
         e.get('transaction') for e in events
-    ]) == {'test_sentry.probe.<locals>.probe', 'test_sentry.probe.<locals>.probe2'}
+    ]) == {'test_sentry_sdk_2x.probe.<locals>.probe', 'test_sentry_sdk_2x.probe.<locals>.probe2'}
 
 
 class TestTransport(Transport):

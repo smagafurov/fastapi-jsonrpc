@@ -38,17 +38,29 @@ logger = logging.getLogger(__name__)
 
 try:
     import sentry_sdk
+    import sentry_sdk.tracing
     from sentry_sdk.utils import transaction_from_function as sentry_transaction_from_function
 except ImportError:
     sentry_sdk = None
     sentry_transaction_from_function = None
-
 
 try:
     from fastapi._compat import _normalize_errors  # noqa
 except ImportError:
     def _normalize_errors(errors: Sequence[Any]) -> List[Dict[str, Any]]:
         return errors
+
+if hasattr(sentry_sdk, 'new_scope'):
+    # sentry_sdk 2.x
+    sentry_new_scope = sentry_sdk.new_scope
+else:
+    # sentry_sdk 1.x
+    @contextmanager
+    def sentry_new_scope():
+        hub = sentry_sdk.Hub.current
+        with sentry_sdk.Hub(hub) as hub:
+            with hub.configure_scope() as scope:
+                yield scope
 
 
 class Params(fastapi.params.Body):
@@ -95,6 +107,7 @@ components = {}
 
 def component_name(name: str, module: str = None):
     """OpenAPI components must be unique by name"""
+
     def decorator(obj):
         assert issubclass(obj, BaseModel)
         opts = {
@@ -127,6 +140,7 @@ def component_name(name: str, module: str = None):
             return components[key]
         components[key] = obj
         return obj
+
     return decorator
 
 
@@ -598,7 +612,7 @@ class JsonRpcContext:
         assert self.exit_stack is None
         self.exit_stack = await AsyncExitStack().__aenter__()
         if sentry_sdk is not None:
-            self.exit_stack.enter_context(self._fix_sentry_scope())
+            self.exit_stack.enter_context(self._enter_sentry_scope())
         await self.exit_stack.enter_async_context(self._handle_exception(reraise=False))
         self.jsonrpc_context_token = _jsonrpc_context.set(self)
         return self
@@ -626,22 +640,28 @@ class JsonRpcContext:
         if self.exception is not None and self.is_unhandled_exception:
             logger.exception(str(self.exception), exc_info=self.exception)
 
+    @contextmanager
+    def _enter_sentry_scope(self):
+        with sentry_new_scope() as scope:
+            # Actually we can use set_transaction_name
+            #             scope.set_transaction_name(
+            #                 sentry_transaction_from_function(method_route.func),
+            #                 source=sentry_sdk.tracing.TRANSACTION_SOURCE_CUSTOM,
+            #             )
+            # and we need `method_route` instance for that,
+            # but method_route is optional and is harder to track it than adding event processor
+            scope.clear_breadcrumbs()
+            scope.add_event_processor(self._make_sentry_event_processor())
+            yield scope
+
     def _make_sentry_event_processor(self):
         def event_processor(event, _):
             if self.method_route is not None:
                 event['transaction'] = sentry_transaction_from_function(self.method_route.func)
+                event['transaction_info']['source'] = sentry_sdk.tracing.TRANSACTION_SOURCE_CUSTOM
             return event
 
         return event_processor
-
-    @contextmanager
-    def _fix_sentry_scope(self):
-        hub = sentry_sdk.Hub.current
-        with sentry_sdk.Hub(hub) as hub:
-            with hub.configure_scope() as scope:
-                scope.clear_breadcrumbs()
-                scope.add_event_processor(self._make_sentry_event_processor())
-                yield
 
     async def enter_middlewares(self, middlewares: Sequence['JsonRpcMiddleware']):
         for mw in middlewares:
@@ -1388,7 +1408,7 @@ class API(FastAPI):
             self._restore_json_schema_fine_component_names(result)
 
         for route in self.routes:
-            if isinstance(route, (EntrypointRoute, MethodRoute, )):
+            if isinstance(route, (EntrypointRoute, MethodRoute,)):
                 route: Union[EntrypointRoute, MethodRoute]
                 for media_type in result['paths'][route.path]:
                     result['paths'][route.path][media_type]['responses'].pop('default', None)
