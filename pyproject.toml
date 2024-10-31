@@ -11,7 +11,7 @@ keywords = ['json-rpc', 'asgi', 'swagger', 'openapi', 'fastapi', 'pydantic', 'st
 exclude = ["example1.py", "example2.py"]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
 aiojobs = ">=1.1.0"
 fastapi = [
     {version = ">=0.112.4"},

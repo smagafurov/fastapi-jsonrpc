@@ -6,17 +6,14 @@ import typing
 from collections import ChainMap, defaultdict
 from collections.abc import Coroutine
 from contextlib import AsyncExitStack, AbstractAsyncContextManager, asynccontextmanager, contextmanager
+from functools import cached_property
 from types import FunctionType
-from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence
+from typing import List, Union, Any, Callable, Type, Optional, Dict, Sequence, Literal
 
 import pydantic
 from fastapi.dependencies.utils import _should_embed_body_fields  # noqa
 from fastapi.openapi.constants import REF_PREFIX
 
-try:
-    from typing import Literal
-except ImportError:
-    from typing_extensions import Literal
 
 from fastapi._compat import ModelField, Undefined  # noqa
 from fastapi.dependencies.models import Dependant
@@ -38,19 +35,6 @@ import aiojobs
 
 logger = logging.getLogger(__name__)
 
-try:
-    from functools import cached_property
-except ImportError:
-    class cached_property:  # noqa
-        def __init__(self, func):
-            self.__doc__ = getattr(func, "__doc__")
-            self.func = func
-
-        def __get__(self, obj, cls):
-            if obj is None:
-                return self
-            value = obj.__dict__[self.func.__name__] = self.func(obj)
-            return value
 
 try:
     import sentry_sdk
