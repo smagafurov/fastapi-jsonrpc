@@ -214,7 +214,7 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
-                            'enum': ['2.0'],
+                            
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -245,7 +245,6 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
-                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -276,7 +275,6 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
-                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -307,7 +305,6 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
-                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -338,7 +335,6 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
-                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -366,7 +362,6 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
-                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -402,7 +397,6 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
-                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -439,7 +433,6 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
-                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
@@ -471,7 +464,6 @@ def test_openapi(app_client, openapi_compatible):
                         'jsonrpc': {
                             'const': '2.0',
                             'default': '2.0',
-                            'enum': ['2.0'],
                             'example': '2.0',
                             'title': 'Jsonrpc',
                             'type': 'string',
