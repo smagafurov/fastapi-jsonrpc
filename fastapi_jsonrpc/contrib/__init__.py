@@ -1,4 +1,4 @@
-from .sentry import FastApiJsonRPCIntegration, TransactionNameGenerator, jrpc_transaction_middleware
+from .sentry import TransactionNameGenerator, FastApiJsonRPCIntegration, jrpc_transaction_middleware
 
 __all__ = [
     "FastApiJsonRPCIntegration",
