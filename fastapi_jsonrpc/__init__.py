@@ -32,6 +32,7 @@ from starlette.responses import Response, JSONResponse
 from starlette.routing import Match, request_response, compile_path
 import fastapi.params
 import aiojobs
+import warnings
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,11 @@ except ImportError:
 if hasattr(sentry_sdk, 'new_scope'):
     # sentry_sdk 2.x
     sentry_new_scope = sentry_sdk.new_scope
+
+    def get_sentry_integration():
+        return sentry_sdk.get_client().get_integration(
+            "FastApiJsonRPCIntegration"
+        )
 else:
     # sentry_sdk 1.x
     @contextmanager
@@ -61,6 +67,8 @@ else:
         with sentry_sdk.Hub(hub) as hub:
             with hub.configure_scope() as scope:
                 yield scope
+
+    get_sentry_integration = lambda : None
 
 
 class Params(fastapi.params.Body):
@@ -642,6 +650,14 @@ class JsonRpcContext:
 
     @contextmanager
     def _enter_sentry_scope(self):
+        if get_sentry_integration() is not None:
+            yield
+            return
+
+        warnings.warn(
+            "You are using implicit sentry integration. This feature might be removed in a future major release."
+            "Use explicit `FastApiJsonRPCIntegration` with sentry-sdk 2.* instead.",
+        )
         with sentry_new_scope() as scope:
             # Actually we can use set_transaction_name
             #             scope.set_transaction_name(

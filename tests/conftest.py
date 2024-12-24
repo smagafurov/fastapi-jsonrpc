@@ -9,15 +9,11 @@ import pytest
 from _pytest.python_api import RaisesContext
 from starlette.testclient import TestClient
 import fastapi_jsonrpc as jsonrpc
-
-
 # Workaround for osx systems
 # https://stackoverflow.com/questions/58597334/unittest-performance-issue-when-using-requests-mock-on-osx
 if platform.system() == 'Darwin':
     import socket
     socket.gethostbyname = lambda x: '127.0.0.1'
-
-
 pytest_plugins = 'pytester'
 
 
@@ -90,21 +86,24 @@ def app_client(app):
 
 @pytest.fixture
 def raw_request(app_client, ep_path):
-    def requester(body, path_postfix='', auth=None):
+    def requester(body, path_postfix='', auth=None, headers=None):
         resp = app_client.post(
             url=ep_path + path_postfix,
             content=body,
+            headers=headers,
             auth=auth,
         )
         return resp
+
     return requester
 
 
 @pytest.fixture
 def json_request(raw_request):
-    def requester(data, path_postfix=''):
-        resp = raw_request(json_dumps(data), path_postfix=path_postfix)
+    def requester(data, path_postfix='', headers=None):
+        resp = raw_request(json_dumps(data), path_postfix=path_postfix, headers=headers)
         return resp.json()
+
     return requester
 
 
@@ -126,6 +125,7 @@ def method_request(json_request, add_path_postfix):
             'method': method,
             'params': params,
         }, path_postfix=path_postfix)
+
     return requester
 
 

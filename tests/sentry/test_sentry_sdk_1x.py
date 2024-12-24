@@ -65,7 +65,7 @@ def test_transaction_is_jsonrpc_method(
 
     assert set([
         e.get('transaction') for e in events
-    ]) == {'test_sentry_sdk_1x.probe.<locals>.probe', 'test_sentry_sdk_1x.probe.<locals>.probe2'}
+    ]) == {'sentry.test_sentry_sdk_1x.probe.<locals>.probe', 'sentry.test_sentry_sdk_1x.probe.<locals>.probe2'}
 
 
 class _TestTransport(Transport):
