@@ -2,7 +2,6 @@ from collections import Counter
 
 
 def assert_jrpc_batch_sentry_items(envelops, expected_items):
-    # 2 errors and 2 transactions
     items = [item.type for e in envelops for item in e.items]
     actual_items = Counter(items)
     assert all(item in actual_items.items() for item in expected_items.items()), actual_items.items()
