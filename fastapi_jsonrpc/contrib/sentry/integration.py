@@ -1,8 +1,8 @@
-from sentry_sdk.integrations import Integration
 from fastapi_jsonrpc import MethodRoute, EntrypointRoute
+from sentry_sdk.integrations import Integration
 
 from .http import set_shared_sentry_context
-from .jrpc import default_transaction_name_generator, TransactionNameGenerator, prepend_jrpc_transaction_middleware
+from .jrpc import TransactionNameGenerator, default_transaction_name_generator, prepend_jrpc_transaction_middleware
 
 
 class FastApiJsonRPCIntegration(Integration):

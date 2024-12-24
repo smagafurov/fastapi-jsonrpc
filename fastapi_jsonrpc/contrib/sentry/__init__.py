@@ -1,5 +1,5 @@
-from .integration import FastApiJsonRPCIntegration
 from .jrpc import TransactionNameGenerator, jrpc_transaction_middleware
+from .integration import FastApiJsonRPCIntegration
 
 __all__ = [
     "FastApiJsonRPCIntegration",

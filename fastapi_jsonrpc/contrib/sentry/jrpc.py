@@ -1,14 +1,14 @@
-from contextlib import asynccontextmanager
 from random import Random
-from typing import Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
+from contextlib import asynccontextmanager
 
 import sentry_sdk
+from fastapi_jsonrpc import BaseError, Entrypoint, JsonRpcContext
+from sentry_sdk.utils import event_from_exception, is_valid_sample_rate
 from sentry_sdk.consts import OP
 from sentry_sdk.tracing import SENTRY_TRACE_HEADER_NAME, Transaction
 from sentry_sdk.tracing_utils import normalize_incoming_data
-from sentry_sdk.utils import event_from_exception, is_valid_sample_rate
 
-from fastapi_jsonrpc import JsonRpcContext, BaseError, Entrypoint
 from .http import sentry_asgi_context
 
 if TYPE_CHECKING:
@@ -51,18 +51,16 @@ async def jrpc_transaction_middleware(ctx: JsonRpcContext):
                 **transaction_params,  # type: ignore
             )
 
-        integration: FastApiJsonRPCIntegration | None = sentry_sdk.get_client().get_integration(
+        integration: FastApiJsonRPCIntegration | None = sentry_sdk.get_client().get_integration(  # type: ignore
             "FastApiJsonRPCIntegration"
         )
         name_generator = integration.transaction_name_generator if integration else default_transaction_name_generator
 
         with jrpc_request_scope.start_transaction(
-                transaction,
-                scope=jrpc_request_scope,
+            transaction,
+            scope=jrpc_request_scope,
         ):
-            jrpc_request_scope.add_event_processor(
-                make_transaction_info_event_processor(ctx, name_generator)
-            )
+            jrpc_request_scope.add_event_processor(make_transaction_info_event_processor(ctx, name_generator))
             try:
                 yield
             except Exception as exc:

@@ -1,6 +1,7 @@
 import uuid
 from functools import wraps
 from contextvars import ContextVar
+
 from starlette.requests import Request
 from sentry_sdk.integrations.asgi import _get_headers
 
