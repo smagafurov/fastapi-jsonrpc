@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi_jsonrpc import MethodRoute, EntrypointRoute
 from sentry_sdk.integrations import Integration
 
@@ -9,7 +10,7 @@ class FastApiJsonRPCIntegration(Integration):
     identifier = "fastapi_jsonrpc"
     _already_enabled: bool = False
 
-    def __init__(self, transaction_name_generator: TransactionNameGenerator | None = None):
+    def __init__(self, transaction_name_generator: Optional[TransactionNameGenerator] = None):
         self.transaction_name_generator = transaction_name_generator or default_transaction_name_generator
 
     @staticmethod
