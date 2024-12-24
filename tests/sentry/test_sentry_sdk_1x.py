@@ -1,6 +1,7 @@
 """Test fixtures copied from https://github.com/getsentry/sentry-python/
 TODO: move integration to sentry_sdk
 """
+
 import importlib.metadata
 
 import pytest
@@ -10,8 +11,8 @@ from sentry_sdk import Transport
 from sentry_sdk.utils import capture_internal_exceptions
 
 
-sentry_sdk_version = importlib.metadata.version('sentry_sdk')
-if not sentry_sdk_version.startswith('1.'):
+sentry_sdk_version = importlib.metadata.version("sentry_sdk")
+if not sentry_sdk_version.startswith("1."):
     pytest.skip(f"Testset is only for sentry_sdk 1.x, given {sentry_sdk_version=}", allow_module_level=True)
 
 
@@ -41,31 +42,36 @@ def test_transaction_is_jsonrpc_method(
     events = capture_events()
 
     # Test in batch to ensure we correctly handle multiple requests
-    json_request([
-        {
-            'id': 1,
-            'jsonrpc': '2.0',
-            'method': 'probe',
-            'params': {},
-        },
-        {
-            'id': 2,
-            'jsonrpc': '2.0',
-            'method': 'probe2',
-            'params': {},
-        },
-    ])
+    json_request(
+        [
+            {
+                "id": 1,
+                "jsonrpc": "2.0",
+                "method": "probe",
+                "params": {},
+            },
+            {
+                "id": 2,
+                "jsonrpc": "2.0",
+                "method": "probe2",
+                "params": {},
+            },
+        ]
+    )
 
     assert {type(e) for e in exceptions} == {RuntimeError, ZeroDivisionError}
 
     assert_log_errors(
-        '', pytest.raises(ZeroDivisionError),
-        '', pytest.raises(RuntimeError),
+        "",
+        pytest.raises(ZeroDivisionError),
+        "",
+        pytest.raises(RuntimeError),
     )
 
-    assert set([
-        e.get('transaction') for e in events
-    ]) == {'sentry.test_sentry_sdk_1x.probe.<locals>.probe', 'sentry.test_sentry_sdk_1x.probe.<locals>.probe2'}
+    assert set([e.get("transaction") for e in events]) == {
+        "sentry.test_sentry_sdk_1x.probe.<locals>.probe",
+        "sentry.test_sentry_sdk_1x.probe.<locals>.probe2",
+    }
 
 
 class _TestTransport(Transport):
@@ -97,9 +103,7 @@ def monkeypatch_test_transport(monkeypatch):
                 assert not any(item.get_event() is not None for item in envelope.items)
 
     def inner(client):
-        monkeypatch.setattr(
-            client, "transport", _TestTransport(check_event, check_envelope)
-        )
+        monkeypatch.setattr(client, "transport", _TestTransport(check_event, check_envelope))
 
     return inner
 

@@ -1,16 +1,18 @@
-"""Test fixtures copied from https://github.com/getsentry/sentry-python/
-"""
+"""Test fixtures copied from https://github.com/getsentry/sentry-python/"""
 
 import uuid
 import importlib.metadata
 import pytest
 from logging import getLogger
 from sentry_sdk.tracing import Transaction
+from fastapi_jsonrpc.contrib.sentry.test_utils import (
+    get_transaction_trace_id,
+    get_captured_transactions,
+    assert_jrpc_batch_sentry_items,
+)
 
-from .utils import get_transaction_trace_id, get_captured_transactions, assert_jrpc_batch_sentry_items
-
-sentry_sdk_version = importlib.metadata.version('sentry_sdk')
-if not sentry_sdk_version.startswith('2.'):
+sentry_sdk_version = importlib.metadata.version("sentry_sdk")
+if not sentry_sdk_version.startswith("2."):
     pytest.skip(f"Testset is only for sentry_sdk 2.x, given {sentry_sdk_version=}", allow_module_level=True)
 
 
@@ -43,16 +45,17 @@ def failing_router(ep):
 
 
 def test_exception_logger_event_creation(
-        json_request, capture_exceptions, capture_events, capture_envelopes, failing_router, sentry_init,
-        assert_log_errors,
+    json_request, capture_exceptions, capture_events, capture_envelopes, failing_router, sentry_init,
+    assert_log_errors,
 ):
     sentry_init()
     exceptions = capture_exceptions()
     envelops = capture_envelopes()
-    json_request([
-        {"jsonrpc": "2.0", "method": "first_failing_method", "params": {}, "id": 1},
-        {"jsonrpc": "2.0", "method": "second_failing_method", "params": {}, "id": 1},
-    ],
+    json_request(
+        [
+            {"jsonrpc": "2.0", "method": "first_failing_method", "params": {}, "id": 1},
+            {"jsonrpc": "2.0", "method": "second_failing_method", "params": {}, "id": 1},
+        ],
     )
     assert {type(e) for e in exceptions} == {ValueError, TypeError}
     assert_log_errors(
@@ -64,17 +67,16 @@ def test_exception_logger_event_creation(
 
 
 def test_unhandled_exception_capturing(
-        json_request, capture_exceptions, capture_events, capture_envelopes, failing_router, assert_log_errors,
-        sentry_init,
+    json_request, capture_exceptions, capture_events, capture_envelopes, failing_router, assert_log_errors,
+    sentry_init
 ):
     sentry_init()
     exceptions = capture_exceptions()
     envelops = capture_envelopes()
-    json_request(
-        {"jsonrpc": "2.0", "method": "unhandled_error_method", "params": {}, "id": 1}
-    )
+    json_request({"jsonrpc": "2.0", "method": "unhandled_error_method", "params": {}, "id": 1})
     assert_log_errors(
-        'Third route exc', pytest.raises(RuntimeError),
+        "Third route exc",
+        pytest.raises(RuntimeError),
     )
     assert {type(e) for e in exceptions} == {RuntimeError}
     # 1 error and 1 transaction
@@ -107,8 +109,8 @@ def test_unhandled_exception_capturing(
     ],
 )
 def test_trace_id_propagation(
-        request_payload, json_request, capture_exceptions, capture_events, capture_envelopes, failing_router,
-        assert_log_errors, sentry_init
+    request_payload, json_request, capture_exceptions, capture_events, capture_envelopes, failing_router,
+    assert_log_errors, sentry_init
 ):
     sentry_init()
     envelops = capture_envelopes()
