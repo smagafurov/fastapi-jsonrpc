@@ -4,7 +4,7 @@ from sentry_sdk import Transport
 from sentry_sdk.envelope import Envelope
 from sentry_sdk.integrations.starlette import StarletteIntegration
 from sentry_sdk.integrations.fastapi import FastApiIntegration
-from fastapi_jsonrpc.contrib import FastApiJsonRPCIntegration
+from fastapi_jsonrpc.contrib.sentry import FastApiJsonRPCIntegration
 
 
 @pytest.fixture
