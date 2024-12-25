@@ -119,7 +119,7 @@ def prepend_jrpc_transaction_middleware():  # noqa: C901
             self.__patched_middlewares__ = original_middlewares
 
         # middleware was passed manually
-        if any(middleware is jrpc_transaction_middleware for middleware in self.__patched_middlewares__):
+        if jrpc_transaction_middleware in self.__patched_middlewares__:
             return self.__patched_middlewares__
 
         self.__patched_middlewares__ = [jrpc_transaction_middleware, *self.__patched_middlewares__]
