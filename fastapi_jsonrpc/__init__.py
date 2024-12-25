@@ -655,8 +655,9 @@ class JsonRpcContext:
             return
 
         warnings.warn(
-            "You are using implicit sentry integration. This feature might be removed in a future major release."
-            "Use explicit `FastApiJsonRPCIntegration` with sentry-sdk 2.* instead.",
+            "Implicit Sentry integration is deprecated and may be removed in a future major release. "
+            "To ensure compatibility, use sentry-sdk 2.* and explicit integration:"
+            "`from fastapi_jsonrpc.contrib.sentry import FastApiJsonRPCIntegration`. "
         )
         with sentry_new_scope() as scope:
             # Actually we can use set_transaction_name
