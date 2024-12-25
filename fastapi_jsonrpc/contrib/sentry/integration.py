@@ -7,7 +7,7 @@ from .jrpc import TransactionNameGenerator, default_transaction_name_generator, 
 
 
 class FastApiJsonRPCIntegration(Integration):
-    identifier = "fastapi_jsonrpc"
+    identifier = "FastApiJsonRPCIntegration"
     _already_enabled: bool = False
 
     def __init__(self, transaction_name_generator: Optional[TransactionNameGenerator] = None):
