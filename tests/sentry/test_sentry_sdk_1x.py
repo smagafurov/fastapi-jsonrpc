@@ -41,23 +41,24 @@ def test_transaction_is_jsonrpc_method(
     exceptions = capture_exceptions()
     events = capture_events()
 
-    # Test in batch to ensure we correctly handle multiple requests
-    json_request(
-        [
-            {
-                "id": 1,
-                "jsonrpc": "2.0",
-                "method": "probe",
-                "params": {},
-            },
-            {
-                "id": 2,
-                "jsonrpc": "2.0",
-                "method": "probe2",
-                "params": {},
-            },
-        ]
-    )
+    with pytest.warns(UserWarning, match="Implicit Sentry integration is deprecated"):
+        # Test in batch to ensure we correctly handle multiple requests
+        json_request(
+            [
+                {
+                    "id": 1,
+                    "jsonrpc": "2.0",
+                    "method": "probe",
+                    "params": {},
+                },
+                {
+                    "id": 2,
+                    "jsonrpc": "2.0",
+                    "method": "probe2",
+                    "params": {},
+                },
+            ]
+        )
 
     assert {type(e) for e in exceptions} == {RuntimeError, ZeroDivisionError}
 

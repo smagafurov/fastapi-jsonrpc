@@ -80,11 +80,6 @@ def capture_exceptions(monkeypatch):
 @pytest.fixture
 def sentry_init(request):
     def inner(*a, **kw):
-        kw.setdefault("transport", TestTransport())
-        kw.setdefault("integrations", [FastApiJsonRPCIntegration()])
-        kw.setdefault("traces_sample_rate", 1.0)
-        kw.setdefault("disabled_integrations", [StarletteIntegration, FastApiIntegration])
-
         client = sentry_sdk.Client(*a, **kw)
         sentry_sdk.get_global_scope().set_client(client)
 
@@ -100,6 +95,22 @@ def sentry_init(request):
             yield inner
         finally:
             sentry_sdk.get_global_scope().set_client(old_client)
+
+
+@pytest.fixture
+def sentry_with_integration(sentry_init):
+    kw = {
+        "transport": TestTransport(),
+        "integrations": [FastApiJsonRPCIntegration()],
+        "traces_sample_rate": 1.0,
+        "disabled_integrations": [StarletteIntegration, FastApiIntegration],
+    }
+    sentry_init(**kw)
+
+
+@pytest.fixture
+def sentry_no_integration(sentry_init):
+    sentry_init()
 
 
 class TestTransport(Transport):
