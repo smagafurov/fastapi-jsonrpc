@@ -45,10 +45,9 @@ def failing_router(ep):
 
 
 def test_exception_logger_event_creation(
-    json_request, capture_exceptions, capture_events, capture_envelopes, failing_router, sentry_init,
-    assert_log_errors,
+        json_request, capture_exceptions, capture_events, capture_envelopes, failing_router, sentry_with_integration,
+        assert_log_errors,
 ):
-    sentry_init()
     exceptions = capture_exceptions()
     envelops = capture_envelopes()
     json_request(
@@ -67,10 +66,9 @@ def test_exception_logger_event_creation(
 
 
 def test_unhandled_exception_capturing(
-    json_request, capture_exceptions, capture_events, capture_envelopes, failing_router, assert_log_errors,
-    sentry_init
+        json_request, capture_exceptions, capture_events, capture_envelopes, failing_router, assert_log_errors,
+        sentry_with_integration
 ):
-    sentry_init()
     exceptions = capture_exceptions()
     envelops = capture_envelopes()
     json_request({"jsonrpc": "2.0", "method": "unhandled_error_method", "params": {}, "id": 1})
@@ -109,10 +107,9 @@ def test_unhandled_exception_capturing(
     ],
 )
 def test_trace_id_propagation(
-    request_payload, json_request, capture_exceptions, capture_events, capture_envelopes, failing_router,
-    assert_log_errors, sentry_init
+        request_payload, json_request, capture_exceptions, capture_events, capture_envelopes, failing_router,
+        assert_log_errors, sentry_with_integration
 ):
-    sentry_init()
     envelops = capture_envelopes()
     expected_trace_id = uuid.uuid4().hex
     incoming_transaction = Transaction(trace_id=expected_trace_id)
@@ -129,3 +126,10 @@ def test_trace_id_propagation(
         'First route exc', pytest.raises(ValueError),
         'Third route exc', pytest.raises(RuntimeError),
     )
+
+
+def test_no_integration_warning_message(json_request, sentry_no_integration):
+    with pytest.warns(UserWarning, match="Implicit Sentry integration is deprecated"):
+        json_request(
+            {"jsonrpc": "2.0", "method": "successful_method", "params": {}, "id": 1}
+        )
