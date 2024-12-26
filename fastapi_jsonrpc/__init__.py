@@ -620,8 +620,8 @@ class JsonRpcContext:
         assert self.exit_stack is None
         self.exit_stack = await AsyncExitStack().__aenter__()
         if (
-                sentry_sdk is not None
-                and get_sentry_integration() is None
+            sentry_sdk is not None
+            and get_sentry_integration() is None
         ):
             self.exit_stack.enter_context(self._enter_old_sentry_integration())
 
