@@ -14,6 +14,7 @@ import pydantic
 from fastapi.dependencies.utils import _should_embed_body_fields  # noqa
 from fastapi.openapi.constants import REF_PREFIX
 
+
 from fastapi._compat import ModelField, Undefined  # noqa
 from fastapi.dependencies.models import Dependant
 from fastapi.encoders import jsonable_encoder
@@ -35,54 +36,40 @@ import warnings
 
 logger = logging.getLogger(__name__)
 
+
+try:
+    import sentry_sdk
+    import sentry_sdk.tracing
+    from sentry_sdk.utils import transaction_from_function as sentry_transaction_from_function
+except ImportError:
+    sentry_sdk = None
+    sentry_transaction_from_function = None
+
 try:
     from fastapi._compat import _normalize_errors  # noqa
 except ImportError:
     def _normalize_errors(errors: Sequence[Any]) -> List[Dict[str, Any]]:
         return errors
-try:
-    import sentry_sdk
-    import sentry_sdk.tracing
-    from sentry_sdk.utils import transaction_from_function as sentry_transaction_from_function
 
-    if hasattr(sentry_sdk, 'new_scope'):
-        # sentry_sdk 2.x
-        @contextmanager
-        def _handle_disabled_sentry_integration(self: "JsonRpcContext"):
-            with sentry_sdk.new_scope() as scope:
-                scope.clear_breadcrumbs()
-                scope.add_event_processor(self._make_sentry_event_processor())
+if hasattr(sentry_sdk, 'new_scope'):
+    # sentry_sdk 2.x
+    sentry_new_scope = sentry_sdk.new_scope
+
+    def get_sentry_integration():
+        return sentry_sdk.get_client().get_integration(
+            "FastApiJsonRPCIntegration"
+        )
+else:
+    # sentry_sdk 1.x
+    @contextmanager
+    def sentry_new_scope():
+        hub = sentry_sdk.Hub.current
+        with sentry_sdk.Hub(hub) as hub:
+            with hub.configure_scope() as scope:
                 yield scope
 
+    get_sentry_integration = lambda : None
 
-        def get_sentry_integration():
-            return sentry_sdk.get_client().get_integration(
-                "FastApiJsonRPCIntegration"
-            )
-    else:
-        # sentry_sdk 1.x
-        @contextmanager
-        def _handle_disabled_sentry_integration(self: "JsonRpcContext"):
-            hub = sentry_sdk.Hub.current
-            with sentry_sdk.Hub(hub) as hub:
-                with hub.configure_scope() as scope:
-                    scope.clear_breadcrumbs()
-                    scope.add_event_processor(self._make_sentry_event_processor())
-                    yield scope
-
-
-        get_sentry_integration = lambda: None
-
-except ImportError:
-    # no sentry installed
-    sentry_sdk = None
-    sentry_transaction_from_function = None
-    get_sentry_integration = lambda: None
-
-
-    @asynccontextmanager
-    def _handle_disabled_sentry_integration(self: "JsonRpcContext"):
-        yield None
 
 class Params(fastapi.params.Body):
     def __init__(
@@ -632,8 +619,12 @@ class JsonRpcContext:
     async def __aenter__(self):
         assert self.exit_stack is None
         self.exit_stack = await AsyncExitStack().__aenter__()
-        if sentry_sdk is not None:
-            self.exit_stack.enter_context(self._enter_sentry_scope())
+        if (
+                sentry_sdk is not None
+                and get_sentry_integration() is None
+        ):
+            self.exit_stack.enter_context(self._enter_old_sentry_integration())
+
         await self.exit_stack.enter_async_context(self._handle_exception(reraise=False))
         self.jsonrpc_context_token = _jsonrpc_context.set(self)
         return self
@@ -662,20 +653,22 @@ class JsonRpcContext:
             logger.exception(str(self.exception), exc_info=self.exception)
 
     @contextmanager
-    def _enter_sentry_scope(self):
-        integration_is_active = get_sentry_integration() is not None
-        # we do not need to use sentry fallback if `sentry-sdk`is not installed or integration is enabled explicitly
-        if integration_is_active or sentry_sdk is None:
-            yield
-            return
-
-
+    def _enter_old_sentry_integration(self):
         warnings.warn(
             "Implicit Sentry integration is deprecated and may be removed in a future major release. "
             "To ensure compatibility, use sentry-sdk 2.* and explicit integration:"
             "`from fastapi_jsonrpc.contrib.sentry import FastApiJsonRPCIntegration`. "
         )
-        with _handle_disabled_sentry_integration(self) as scope:
+        with sentry_new_scope() as scope:
+            # Actually we can use set_transaction_name
+            #             scope.set_transaction_name(
+            #                 sentry_transaction_from_function(method_route.func),
+            #                 source=sentry_sdk.tracing.TRANSACTION_SOURCE_CUSTOM,
+            #             )
+            # and we need `method_route` instance for that,
+            # but method_route is optional and is harder to track it than adding event processor
+            scope.clear_breadcrumbs()
+            scope.add_event_processor(self._make_sentry_event_processor())
             yield scope
 
     def _make_sentry_event_processor(self):
