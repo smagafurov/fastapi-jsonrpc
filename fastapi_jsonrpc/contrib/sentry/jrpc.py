@@ -74,6 +74,8 @@ async def jrpc_transaction_middleware(ctx: JsonRpcContext):
                     mechanism={"type": "asgi", "handled": False},
                 )
                 sentry_sdk.capture_event(event, hint=hint)
+                # propagate error further. Possible duplicates would be suppressed by default `DedupeIntegration`
+                raise exc from None
 
 
 class JrpcTransaction(Transaction):
