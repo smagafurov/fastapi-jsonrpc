@@ -288,6 +288,29 @@ Swagger:
 
 .. image:: ./images/fastapi-jsonrpc.png
 
+Sentry
+======
+
+
+* (auto) JRPC method name as transaction name
+* (only for FastApiJsonRPCIntegration) Tracing support. Single transaction for batch requests, each method is span
+
+.. code-block:: python
+
+    import sentry_sdk
+    from fastapi_jsonrpc.contrib.sentry import FastApiJsonRPCIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    
+
+    sentry_sdk.init(
+       ...,
+       integrations=[FastApiJsonRPCIntegration()],
+       # if you do not use common (RESTlike) routes you can disable other integrations
+       # for performance reasons
+       disabled_integrations=[StarletteIntegration, FastApiIntegration],
+    )
+
 Development
 ===========
 
