@@ -919,7 +919,11 @@ class MethodRoute(APIRoute):
                 RequestValidationError(_normalize_errors(solved_dependency.errors))
             )
 
-        result = await call_sync_async(self.func, **solved_dependency.values)
+        if ctx.request.id:
+            result = await call_sync_async(self.func, **solved_dependency.values)
+        else:
+            result = {}
+            background_tasks.add_task(self.func, **solved_dependency.values)
 
         response = {
             'jsonrpc': '2.0',
