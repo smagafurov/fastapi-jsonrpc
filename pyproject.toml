@@ -28,7 +28,7 @@ rst_include = "^2.1.0"
 pytest = "^6.2"
 sentry-sdk = "^2.0"
 requests = ">0.0.0"
-httpx = ">=0.23.0,<0.24.0"  # FastAPI/Starlette extra test deps
+httpx = ">=0.27.0,<0.29.0"  # FastAPI/Starlette extra test deps
 
 [build-system]
 requires = ["poetry>=0.12"]

@@ -130,6 +130,17 @@ def method_request(json_request, add_path_postfix):
 
 
 @pytest.fixture
+def ep_wait_all_requests_done(app_client, ep):
+    """Returns function which waits until inner scheduler was empty
+    That's means all requests are done
+    """
+    def wait_empty(ep=ep):
+        app_client.portal.call(ep.scheduler.wait_and_close)
+
+    return wait_empty
+
+
+@pytest.fixture
 def openapi_compatible():
     supported_openapi_versions = [packaging.version.parse("3.0.2"), packaging.version.parse("3.1.0")]
 

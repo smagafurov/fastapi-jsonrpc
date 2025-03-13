@@ -1,3 +1,5 @@
+import threading
+
 from json import dumps as json_dumps
 from typing import List
 
@@ -48,7 +50,7 @@ def test_no_params(echo, json_request):
 
 
 @pytest.mark.parametrize('request_id', [111, 'qwe'])
-def test_basic(echo, json_request, request_id):
+def test_basic(echo, json_request, request_id, ep_wait_all_requests_done):
     resp = json_request({
         'id': request_id,
         'jsonrpc': '2.0',
@@ -56,20 +58,22 @@ def test_basic(echo, json_request, request_id):
         'params': {'data': 'data-123'},
     })
     assert resp == {'id': request_id, 'jsonrpc': '2.0', 'result': 'data-123'}
+    ep_wait_all_requests_done()
     assert echo.history == ['data-123']
 
 
-def test_notify(echo, raw_request):
+def test_notify(echo, raw_request, ep_wait_all_requests_done):
     resp = raw_request(json_dumps({
         'jsonrpc': '2.0',
         'method': 'echo',
         'params': {'data': 'data-123'},
     }))
     assert not resp.content
+    ep_wait_all_requests_done()
     assert echo.history == ['data-123']
 
 
-def test_batch_notify(echo, raw_request):
+def test_batch_notify(echo, raw_request, ep_wait_all_requests_done):
     resp = raw_request(json_dumps([
         {
             'jsonrpc': '2.0',
@@ -83,6 +87,7 @@ def test_batch_notify(echo, raw_request):
         },
     ]))
     assert not resp.content
+    ep_wait_all_requests_done()
     assert set(echo.history) == {'data-111', 'data-222'}
 
 
@@ -279,7 +284,7 @@ def test_method_not_found(echo, json_request):
     assert echo.history == []
 
 
-def test_batch(echo, json_request):
+def test_batch(echo, json_request, ep_wait_all_requests_done):
     resp = json_request([
         {
             'id': 111,
@@ -310,6 +315,7 @@ def test_batch(echo, json_request):
         {'id': 'qwe', 'jsonrpc': '2.0', 'result': 'data-qwe'},
         {'id': 'method-not-found', 'jsonrpc': '2.0', 'error': {'code': -32601, 'message': 'Method not found'}},
     ]
+    ep_wait_all_requests_done()
     assert set(echo.history) == {'data-111', 'data-notify', 'data-qwe'}
 
 

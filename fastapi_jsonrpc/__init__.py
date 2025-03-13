@@ -919,6 +919,15 @@ class MethodRoute(APIRoute):
                 RequestValidationError(_normalize_errors(solved_dependency.errors))
             )
 
+        # We MUST NOT return response for Notification
+        # https://www.jsonrpc.org/specification#notification
+        # Since we do not need response - run in scheduler
+        if ctx.request.id is None:
+            scheduler = await self.entrypoint.get_scheduler()
+            await scheduler.spawn(call_sync_async(self.func, **solved_dependency.values))
+            return {}
+
+        # Для обычных запросов продолжаем как раньше
         result = await call_sync_async(self.func, **solved_dependency.values)
 
         response = {
