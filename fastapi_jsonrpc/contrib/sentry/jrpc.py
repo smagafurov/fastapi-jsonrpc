@@ -17,6 +17,13 @@ if TYPE_CHECKING:
 _DEFAULT_TRANSACTION_NAME = "generic JRPC request"
 TransactionNameGenerator = Callable[[JsonRpcContext], str]
 
+if hasattr(sentry_sdk.tracing, 'TransactionSource'):
+    # sentry_sdk ^2.23
+    TRANSACTION_SOURCE_CUSTOM = sentry_sdk.tracing.TransactionSource.CUSTOM
+else:
+    # sentry_sdk ^2.0
+    TRANSACTION_SOURCE_CUSTOM = sentry_sdk.tracing.TRANSACTION_SOURCE_CUSTOM
+
 
 @asynccontextmanager
 async def jrpc_transaction_middleware(ctx: JsonRpcContext):
@@ -30,7 +37,7 @@ async def jrpc_transaction_middleware(ctx: JsonRpcContext):
         # this name is replaced by event processor
         name=_DEFAULT_TRANSACTION_NAME,
         op=OP.HTTP_SERVER,
-        source=sentry_sdk.tracing.TRANSACTION_SOURCE_CUSTOM,
+        source=TRANSACTION_SOURCE_CUSTOM,
         origin="manual",
     )
     with sentry_sdk.isolation_scope() as jrpc_request_scope:
@@ -98,7 +105,7 @@ class JrpcTransaction(Transaction):
 
 def make_transaction_info_event_processor(ctx: JsonRpcContext, name_generator: TransactionNameGenerator) -> Callable:
     def _event_processor(event, _):
-        event["transaction_info"]["source"] = sentry_sdk.tracing.TRANSACTION_SOURCE_CUSTOM
+        event["transaction_info"]["source"] = TRANSACTION_SOURCE_CUSTOM
         if ctx.method_route is not None:
             event["transaction"] = name_generator(ctx)
 
