@@ -158,7 +158,7 @@ def test_basic(app_client, openapi_compatible):
                     'properties': {
                         'ctx': {
                             'title': 'Ctx',
-                            'anyOf': [{'type': 'object'}, {'type': 'null'}],
+                            'anyOf': [{'additionalProperties': True, 'type': 'object'}, {'type': 'null'}],
                         },
                         'loc': {
                             'items': {'anyOf': [
@@ -502,6 +502,7 @@ def test_basic(app_client, openapi_compatible):
                             'type': 'string',
                         },
                         'result': {
+                            'additionalProperties': True,
                             'title': 'Result',
                             'type': 'object',
                         },
