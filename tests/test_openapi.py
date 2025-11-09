@@ -647,7 +647,7 @@ def probe(
             unique_param_name=web_param_name,
         ),
     )
-    return api_dir
+    return request.param
 
 
 def test_component_name_isolated_by_their_path(pytester, api_package):
@@ -677,25 +677,30 @@ def test_no_collide(app_client):
 
     paths = resp_json['paths']
     schemas = resp_json['components']['schemas']
+    
+    mobile_path = '/api/v1/mobile/jsonrpc/probe'
+    web_path = '/api/v1/web/jsonrpc/probe'
 
-    for path in (
-        '/api/v1/mobile/jsonrpc/probe',
-        '/api/v1/web/jsonrpc/probe',
-    ):
+    for path in (mobile_path, web_path):
         assert path in paths
 
     # Response model the same and deduplicated
-    assert '_Response[probe]' in schemas
-
-    if '_Params[probe]' not in schemas:
-        for component_name in (
-            'api.mobile._Params[probe]',
-            'api.mobile._Request[probe]',
-            'api.web._Params[probe]',
-            'api.web._Request[probe]',
-        ):
-            assert component_name in schemas
-''')
+    web_response_ref = paths[web_path]['post']['responses']['200']['content']['application/json']['schema']['$ref']
+    mobile_response_ref = paths[mobile_path]['post']['responses']['200']['content']['application/json']['schema']['$ref']
+    
+    assert web_response_ref == mobile_response_ref
+    
+    web_request_ref = paths[web_path]['post']['requestBody']['content']['application/json']['schema']['$ref']
+    mobile_request_ref = paths[mobile_path]['post']['requestBody']['content']['application/json']['schema']['$ref']
+    
+    if '{package_type}' == 'same-sig':
+        assert web_request_ref == mobile_request_ref
+        assert web_request_ref.split('/')[-1] in schemas
+    else:
+        assert web_request_ref != mobile_request_ref
+        assert web_request_ref.split('/')[-1] in schemas
+        assert mobile_request_ref.split('/')[-1] in schemas
+'''.format(package_type=api_package))
 
     # force reload module to drop component cache
     # it's more efficient than use pytest.runpytest_subprocess()

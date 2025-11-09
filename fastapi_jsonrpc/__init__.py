@@ -24,13 +24,13 @@ from fastapi import FastAPI, Body
 from fastapi.dependencies.utils import solve_dependencies, get_dependant, get_flat_dependant, \
     get_parameterless_sub_dependant
 from fastapi.exceptions import RequestValidationError, HTTPException
-from fastapi.routing import APIRoute, APIRouter, serialize_response
+from fastapi.routing import APIRoute, APIRouter, request_response, serialize_response
 from pydantic import BaseModel, ValidationError, StrictStr, Field, create_model, ConfigDict
 from starlette.background import BackgroundTasks
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import Response, JSONResponse
-from starlette.routing import Match, request_response, compile_path
+from starlette.routing import Match, compile_path
 import fastapi.params
 import aiojobs
 import warnings
@@ -1419,7 +1419,10 @@ class API(FastAPI):
 
         fine_schema = {}
         for key, schema in data['components']['schemas'].items():
-            fine_schema_name = key[:-len(schema['title'].replace('.', '__'))].replace('__', '.') + schema['title']
+            if 'title' in schema:
+                fine_schema_name = key[:-len(schema['title'].replace('.', '__'))].replace('__', '.') + schema['title']
+            else:
+                fine_schema_name = key.replace('__', '.')
             old2new_schema_name[key] = fine_schema_name
             fine_schema[fine_schema_name] = schema
         data['components']['schemas'] = fine_schema
