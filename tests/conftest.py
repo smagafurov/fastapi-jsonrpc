@@ -1,5 +1,6 @@
 import logging
 import platform
+import sys
 from json import dumps as json_dumps
 from unittest.mock import ANY
 
@@ -162,3 +163,8 @@ def openapi_compatible():
 
             return obj
     return _openapi_compatible
+
+
+collect_ignore = []
+if sys.version_info < (3, 12):
+    collect_ignore.append("test_openrpc_type_keyword.py")
