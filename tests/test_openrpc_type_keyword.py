@@ -3,7 +3,7 @@ from typing import List
 from pydantic import BaseModel
 
 
-def test_type_keyword_field(ep, app, app_client):
+def test_py312_type_keyword_field(ep, app, app_client):
     class Model1(BaseModel):
         x: int
 

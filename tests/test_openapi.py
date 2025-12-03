@@ -588,8 +588,13 @@ def test_basic(ep, app, app_client, openapi_compatible):
     })
 
 
-@pytest.fixture(params=['uniq-sig', 'same-sig'])
-def api_package(request, pytester):
+@pytest.fixture(params=['no-collide', 'collide'])
+def api_package_signature(request):
+    return request.param
+
+
+@pytest.fixture()
+def api_package(api_package_signature, pytester):
     """Create package with structure
         api \
             mobile.py
@@ -624,11 +629,11 @@ def probe(
     return [1, 2, 3]
 """
 
-    if request.param == 'uniq-sig':
+    if api_package_signature == 'no-collide':
         mobile_param_name = 'mobile_data'
         web_param_name = 'web_data'
     else:
-        assert request.param == 'same-sig'
+        assert api_package_signature == 'collide'
         mobile_param_name = web_param_name = 'data'
 
     api_dir = pytester.mkpydir('api')
@@ -647,10 +652,11 @@ def probe(
             unique_param_name=web_param_name,
         ),
     )
-    return request.param
+    return api_dir
 
 
-def test_component_name_isolated_by_their_path(pytester, api_package):
+@pytest.mark.usefixtures('api_package')
+def test_component_name_isolated_by_their_path(pytester, api_package_signature):
     """Test we can mix methods with same names in one openapi.json schema
     """
 
@@ -677,30 +683,21 @@ def test_no_collide(app_client):
 
     paths = resp_json['paths']
     schemas = resp_json['components']['schemas']
-    
-    mobile_path = '/api/v1/mobile/jsonrpc/probe'
-    web_path = '/api/v1/web/jsonrpc/probe'
 
-    for path in (mobile_path, web_path):
+    for path in (
+        '/api/v1/mobile/jsonrpc/probe',
+        '/api/v1/web/jsonrpc/probe',
+    ):
         assert path in paths
 
     # Response model the same and deduplicated
-    web_response_ref = paths[web_path]['post']['responses']['200']['content']['application/json']['schema']['$ref']
-    mobile_response_ref = paths[mobile_path]['post']['responses']['200']['content']['application/json']['schema']['$ref']
-    
-    assert web_response_ref == mobile_response_ref
-    
-    web_request_ref = paths[web_path]['post']['requestBody']['content']['application/json']['schema']['$ref']
-    mobile_request_ref = paths[mobile_path]['post']['requestBody']['content']['application/json']['schema']['$ref']
-    
-    if '{package_type}' == 'same-sig':
-        assert web_request_ref == mobile_request_ref
-        assert web_request_ref.split('/')[-1] in schemas
+    if '{package_type}' == 'collide':
+        assert ('api.mobile._Params[probe]' in schemas) ^ ('api.web._Params[probe]' in schemas)
+        assert ('api.mobile._Request[probe]' in schemas) ^ ('api.web._Request[probe]' in schemas)
     else:
-        assert web_request_ref != mobile_request_ref
-        assert web_request_ref.split('/')[-1] in schemas
-        assert mobile_request_ref.split('/')[-1] in schemas
-'''.format(package_type=api_package))
+        assert 'api.mobile._Params[probe]' in schemas and 'api.web._Params[probe]' in schemas
+        assert 'api.mobile._Request[probe]' in schemas and 'api.web._Request[probe]' in schemas
+'''.format(package_type=api_package_signature))
 
     # force reload module to drop component cache
     # it's more efficient than use pytest.runpytest_subprocess()
