@@ -690,13 +690,9 @@ def test_no_collide(app_client):
     ):
         assert path in paths
 
-    # Response model the same and deduplicated
-    if '{package_type}' == 'collide':
-        assert ('api.mobile._Params[probe]' in schemas) ^ ('api.web._Params[probe]' in schemas)
-        assert ('api.mobile._Request[probe]' in schemas) ^ ('api.web._Request[probe]' in schemas)
-    else:
-        assert 'api.mobile._Params[probe]' in schemas and 'api.web._Params[probe]' in schemas
-        assert 'api.mobile._Request[probe]' in schemas and 'api.web._Request[probe]' in schemas
+    # Components are isolated by module path - both should be present
+    assert 'api.mobile._Params[probe]' in schemas and 'api.web._Params[probe]' in schemas
+    assert 'api.mobile._Request[probe]' in schemas and 'api.web._Request[probe]' in schemas
 '''.format(package_type=api_package_signature))
 
     # force reload module to drop component cache

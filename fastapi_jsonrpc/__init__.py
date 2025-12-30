@@ -114,12 +114,23 @@ components: Dict[Tuple[str, str], Type[BaseModel]] = {}
 
 
 def component_name(name: str, module: Optional[str] = None) -> Callable[[Type[BaseModel]], Type[BaseModel]]:
-    """OpenAPI components must be unique by name"""
+    """OpenAPI components must be unique by name.
+
+    For non-core modules, set unique title to prevent pydantic from deduplicating
+    models with same name from different modules.
+    The module prefix in title is removed later in _restore_json_schema_fine_component_names if no collision.
+    """
     def decorator(obj):
         assert issubclass(obj, BaseModel)
+        effective_module = module or obj.__module__
+
+        # Determine if we need module prefix in title to prevent deduplication
+        # Exclude fastapi_jsonrpc (core library) and __main__ (entry point, unlikely to collide)
+        needs_module_prefix = effective_module and effective_module not in ('fastapi_jsonrpc', '__main__')
+
         opts: dict[str, Any] = {
             '__base__': tuple(obj.mro()[1:]),  # remove self from __base__
-            '__module__': module or obj.__module__,
+            '__module__': effective_module,
             **{
                 field_name: (field.annotation, field)
                 for field_name, field in obj.model_fields.items()
@@ -131,12 +142,17 @@ def component_name(name: str, module: Optional[str] = None) -> Callable[[Type[Ba
 
         # re-create model to ensure given name will be applied to json schema
         # since Pydantic 2.0 model json schema generated at class creation process
-
         obj = create_model(name, **opts)
+
+        # Set unique title for pydantic schema generation to prevent deduplication
+        # Pydantic uses title (if set) for schema key generation
+        if needs_module_prefix:
+            obj.model_config['title'] = f'{effective_module}.{name}'
 
         if module is not None:
             obj.__module__ = module  # see: pydantic._internal._core_utils.get_type_ref
-        key = (obj.__name__, obj.__module__)
+
+        key = (name, effective_module)
         if key in components:
             lhs = components[key].model_json_schema()
             rhs = obj.model_json_schema()
@@ -736,7 +752,6 @@ class MethodRoute(APIRoute):
         self.dependant.header_params = func_dependant.header_params
         self.dependant.cookie_params = func_dependant.cookie_params
         self.dependant.dependencies = func_dependant.dependencies
-        self.dependant.security_requirements = func_dependant.security_requirements
 
         self.func = func
         self.flat_dependant = flat_dependant
@@ -1009,7 +1024,7 @@ class EntrypointRoute(APIRoute):
                 f"params={flat_dependant.query_params}"
             )
 
-        self.shared_dependant = copy.copy(self.dependant)
+        self.shared_dependant = copy.deepcopy(self.dependant)
 
         # No shared 'Body' params, because each JSON-RPC request in batch has own body
         self.shared_dependant.body_params = []
@@ -1019,7 +1034,6 @@ class EntrypointRoute(APIRoute):
         self.dependant.header_params.extend(common_dependant.header_params)
         self.dependant.cookie_params.extend(common_dependant.cookie_params)
         self.dependant.dependencies.extend(common_dependant.dependencies)
-        self.dependant.security_requirements.extend(common_dependant.security_requirements)
 
         self.app = request_response(self.handle_http_request)
         self.entrypoint = entrypoint
@@ -1369,40 +1383,107 @@ class API(FastAPI):
         self.add_event_handler("shutdown", self.run_shutdown_functions)
 
     def _restore_json_schema_fine_component_names(self, data: dict):
-        def update_refs(value):
-            if not isinstance(value, (dict, list)):
-                return
+        """Restore human-readable schema names and clean up module prefixes.
 
-            if isinstance(value, list):
-                for v in value:
-                    update_refs(v)
-                return
+        Pydantic generates ugly schema keys like '_Params_probe_'. This method:
+        1. Renames schema keys to readable format (from title or normalized key)
+        2. Removes module prefixes when there's no collision
+        3. Updates all $refs to use new names
+        """
+        import re
 
-            if '$ref' not in value:
-                for v in value.values():
-                    update_refs(v)
-                return
+        def get_module_and_base(name: str) -> tuple[str, str]:
+            """Split 'module.ClassName' into ('module', 'ClassName').
 
-            ref = value['$ref']
-            if ref.startswith(REF_PREFIX):
-                *_, schema = ref.split(REF_PREFIX)
-                new_schema = old2new_schema_name.get(schema, schema)
-                if new_schema != schema:
-                    ref = f'{REF_PREFIX}{new_schema}'
-                    value['$ref'] = ref
+            Module parts are lowercase, class parts start with uppercase or _.
+            Examples:
+                'api.mobile._Params[probe]' -> ('api.mobile', '_Params[probe]')
+                'test_openrpc.MyError.Data' -> ('test_openrpc', 'MyError.Data')
+                '_Params[probe]' -> ('', '_Params[probe]')
+            """
+            if '.' not in name:
+                return '', name
 
-        # restore components fine names
-        old2new_schema_name = {}
+            parts = name.split('.')
+            for i, part in enumerate(parts):
+                # Class names start with uppercase or underscore
+                if not part.islower() and not part.startswith('__'):
+                    return '.'.join(parts[:i]), '.'.join(parts[i:])
 
-        fine_schema = {}
+            return '.'.join(parts[:-1]), parts[-1]
+
+        def strip_module_if_no_collision(name: str, collision_names: set[str]) -> str:
+            """Remove module prefix if base name doesn't collide."""
+            module, base = get_module_and_base(name)
+            if module and base not in collision_names:
+                return base
+            return name
+
+        def clean_bracket_contents(name: str, collision_names: set[str]) -> str:
+            """Clean module prefixes inside brackets like _ErrorData[module._Error]."""
+            def replace(match):
+                content = match.group(1)
+                cleaned = strip_module_if_no_collision(content, collision_names)
+                return f'[{cleaned}]'
+            return re.sub(r'\[([^\]]+)\]', replace, name)
+
+        # Step 1: Build normalized names from titles
+        normalized = {}
         for key, schema in data['components']['schemas'].items():
+            normalized[key] = schema.get('title') or key.replace('__', '.').replace('_', '')
+
+        # Step 2: Find collisions (same base name from different modules)
+        base_count: Dict[str, int] = {}
+        for name in normalized.values():
+            _, base = get_module_and_base(name)
+            base_count[base] = base_count.get(base, 0) + 1
+            # Also check inside brackets
+            for match in re.finditer(r'\[([^\]]+)\]', name):
+                _, inner_base = get_module_and_base(match.group(1))
+                base_count[inner_base] = base_count.get(inner_base, 0) + 1
+
+        collision_names = {base for base, count in base_count.items() if count > 1}
+
+        # Step 3: Build final schema with clean names
+        old_to_new = {}
+        new_schemas = {}
+        for old_key, schema in data['components']['schemas'].items():
+            # Clean the schema key
+            new_key = strip_module_if_no_collision(normalized[old_key], collision_names)
+            new_key = clean_bracket_contents(new_key, collision_names)
+
+            # Clean the title
             if 'title' in schema:
-                fine_schema_name = key[:-len(schema['title'].replace('.', '__'))].replace('__', '.') + schema['title']
-            else:
-                fine_schema_name = key.replace('__', '.')
-            old2new_schema_name[key] = fine_schema_name
-            fine_schema[fine_schema_name] = schema
-        data['components']['schemas'] = fine_schema
+                title = strip_module_if_no_collision(schema['title'], collision_names)
+                schema['title'] = clean_bracket_contents(title, collision_names)
+
+            old_to_new[old_key] = new_key
+            new_schemas[new_key] = schema
+
+        data['components']['schemas'] = new_schemas
+
+        # Step 4: Clean error data titles (OpenRPC format)
+        if 'errors' in data['components']:
+            for error_spec in data['components']['errors'].values():
+                if 'data' in error_spec and 'title' in error_spec['data']:
+                    title = error_spec['data']['title']
+                    title = strip_module_if_no_collision(title, collision_names)
+                    error_spec['data']['title'] = clean_bracket_contents(title, collision_names)
+
+        # Step 5: Update all $refs
+        def update_refs(obj):
+            if isinstance(obj, dict):
+                if '$ref' in obj:
+                    ref = obj['$ref']
+                    if ref.startswith(REF_PREFIX):
+                        old_name = ref[len(REF_PREFIX):]
+                        if old_name in old_to_new:
+                            obj['$ref'] = REF_PREFIX + old_to_new[old_name]
+                for v in obj.values():
+                    update_refs(v)
+            elif isinstance(obj, list):
+                for v in obj:
+                    update_refs(v)
 
         update_refs(data)
 

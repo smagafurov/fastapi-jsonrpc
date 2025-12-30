@@ -7,7 +7,7 @@ from unittest.mock import ANY
 import packaging.version
 import pydantic
 import pytest
-from _pytest.python_api import RaisesContext
+from _pytest.raises import RaisesExc  # type: ignore[unused-ignore, attr-defined, no-redef]
 from starlette.testclient import TestClient
 import fastapi_jsonrpc as jsonrpc
 # Workaround for osx systems
@@ -41,7 +41,7 @@ def assert_log_errors(caplog):
                 error_messages.append(error)
                 error_raises.append(None)
             else:
-                assert isinstance(error, RaisesContext), "errors-element must be string or pytest.raises(...)"
+                assert isinstance(error, RaisesExc), "errors-element must be string or pytest.raises(...)"
                 assert error_raises[-1] is None
                 error_raises[-1] = error
 
