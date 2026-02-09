@@ -1,6 +1,17 @@
-# Here is a sample old implementation (replace this with actual code)....
+from fastapi import APIRouter
+from fastapi.encoders import jsonable_encoder
 
-response = self.serialize_response(data)
+# other imports
 
-# Example lines to modify (930-937):
-# ...
+# Remove import for serialize_response
+# from fastapi.routing import serialize_response
+
+router = APIRouter()
+
+# existing code
+
+# changes around line 930
+
+response = jsonable_encoder(response)
+
+# existing code continues
