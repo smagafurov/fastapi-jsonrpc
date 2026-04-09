@@ -1,0 +1,124 @@
+# Zensical configuration for fastapi-jsonrpc docs
+# Install:  pip install zensical
+# Serve:    zensical serve
+# Build:    zensical build
+
+[project]
+site_name = "fastapi-jsonrpc"
+site_description = "JSON-RPC 2.0 server on top of FastAPI with OpenAPI, OpenRPC, Swagger UI and all FastAPI's dependency injection"
+site_author = "Sergey Magafurov"
+site_url = "https://smagafurov.github.io/fastapi-jsonrpc/"
+copyright = "Copyright © Sergey Magafurov"
+language = "en"
+docs_dir = "docs"
+
+# ---------------------------------------------------------------------------
+# Theme
+# ---------------------------------------------------------------------------
+[project.theme]
+name = "zensical"
+variant = "classic"
+features = [
+    "navigation.instant",
+    "navigation.tracking",
+    "navigation.tabs",
+    "navigation.sections",
+    "navigation.indexes",
+    "navigation.top",
+    "toc.follow",
+    "content.code.copy",
+    "content.code.annotate",
+    "content.tabs.link",
+    "search.suggest",
+    "search.highlight",
+]
+
+[[project.theme.palette]]
+scheme = "default"
+primary = "teal"
+accent = "teal"
+toggle.icon = "material/weather-sunny"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+primary = "teal"
+accent = "teal"
+toggle.icon = "material/weather-night"
+toggle.name = "Switch to light mode"
+
+# ---------------------------------------------------------------------------
+# Markdown extensions
+# ---------------------------------------------------------------------------
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+md_in_html = {}
+tables = {}
+
+[project.markdown_extensions.toc]
+permalink = true
+
+[project.markdown_extensions."pymdownx.details"]
+
+[project.markdown_extensions."pymdownx.superfences"]
+
+[project.markdown_extensions."pymdownx.tabbed"]
+alternate_style = true
+
+[project.markdown_extensions."pymdownx.highlight"]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+
+[project.markdown_extensions."pymdownx.inlinehilite"]
+
+[project.markdown_extensions."pymdownx.snippets"]
+
+[project.markdown_extensions."pymdownx.emoji"]
+
+# ---------------------------------------------------------------------------
+# Modules
+# ---------------------------------------------------------------------------
+[project.modules.search]
+lang = "en"
+
+# ---------------------------------------------------------------------------
+# Navigation
+# ---------------------------------------------------------------------------
+[[project.nav]]
+"Home" = "index.md"
+
+[[project.nav]]
+"Installation" = "installation.md"
+
+[[project.nav]]
+"Quickstart" = "quickstart.md"
+
+[[project.nav]]
+[[project.nav."Usage"]]
+"Methods & parameters" = "usage/methods.md"
+[[project.nav."Usage"]]
+"Errors" = "usage/errors.md"
+[[project.nav."Usage"]]
+"Dependencies" = "usage/dependencies.md"
+[[project.nav."Usage"]]
+"Middlewares" = "usage/middlewares.md"
+[[project.nav."Usage"]]
+"OpenAPI & OpenRPC" = "usage/openapi.md"
+[[project.nav."Usage"]]
+"Sentry" = "usage/sentry.md"
+[[project.nav."Usage"]]
+"Testing" = "usage/testing.md"
+
+[[project.nav]]
+[[project.nav."Reference"]]
+"API" = "reference/api.md"
+[[project.nav."Reference"]]
+"Entrypoint" = "reference/entrypoint.md"
+[[project.nav."Reference"]]
+"BaseError" = "reference/errors.md"
+[[project.nav."Reference"]]
+"Context" = "reference/context.md"

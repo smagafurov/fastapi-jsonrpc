@@ -7,8 +7,9 @@ on:
   pull_request:
     paths-ignore:
       - LICENSE
-      - README.rst
-      - README.src.rst
+      - README.md
+      - docs/**
+      - zensical.toml
 
   push:
     branches: [master]

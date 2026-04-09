@@ -70,8 +70,8 @@ instance/
 # Scrapy stuff:
 .scrapy
 
-# Sphinx documentation
-docs/_build/
+# Zensical build output
+/site/
 
 # PyBuilder
 target/
