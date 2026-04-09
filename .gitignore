@@ -76,6 +76,9 @@ instance/
 # Claude Code local settings
 .claude/settings.local.json
 
+# Feature planning scratch space (kept local, not tracked)
+/features/
+
 # PyBuilder
 target/
 
