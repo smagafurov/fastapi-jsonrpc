@@ -1,0 +1,35 @@
+# fastapi-jsonrpc
+
+> JSON-RPC 2.0 server built on top of FastAPI. Write methods exactly like FastAPI endpoints and get OpenAPI, Swagger UI, and OpenRPC generated automatically. Supports batch requests, notifications, typed errors, async context-manager middlewares, and Sentry integration.
+
+Version: 3.4.2. Python >=3.10, FastAPI >=0.123, Pydantic >=2.7.
+
+## Getting Started
+
+- [Installation](installation.md): `pip install fastapi-jsonrpc`
+- [Quickstart](quickstart.md): Minimal working app with a custom error
+
+## Core Concepts
+
+- [Methods & Parameters](usage/methods.md): Declaring sync/async methods, Body/Header/Cookie/Depends params, batching, notifications
+- [Errors](usage/errors.md): BaseError subclasses, typed DataModel, built-in JSON-RPC errors, entrypoint-wide errors
+- [Dependencies](usage/dependencies.md): batch-level `dependencies` vs per-call `common_dependencies`, yield deps, background tasks
+- [Middlewares](usage/middlewares.md): JsonRpcMiddleware, JsonRpcContext attributes, context helpers, batch vs per-call scope
+
+## Reference
+
+- [API class](reference/api.md): `jsonrpc.API` constructor options, `bind_entrypoint`, OpenRPC control
+- [Entrypoint class](reference/entrypoint.md): `jsonrpc.Entrypoint` constructor, `default_errors`, method registration
+- [BaseError class](reference/errors.md): Class attributes, built-in error table, instance methods
+- [JsonRpcContext](reference/context.md): Context attributes, `get_jsonrpc_context` / `get_jsonrpc_method` / `get_jsonrpc_request_id`
+
+## Integrations
+
+- [OpenAPI & OpenRPC](usage/openapi.md): Auto-generated schemas, per-method Swagger routes, component names, tags
+- [Sentry](usage/sentry.md): `FastApiJsonRPCIntegration`, transaction naming, batch spans
+- [Testing](usage/testing.md): pytest plugin — `JsonRpcTestClient`, `jsonrpc_client` fixture, auto-validation of declared errors, opt-out marker, direct method calls
+
+## LLM Context
+
+- [About llms.txt / llms-full.txt](llms.md): How to wire these files into Claude, Cursor, or any LLM-based coding assistant
+- [Full Documentation](llms-full.txt): Complete context for LLMs — public API signatures, all patterns, wire protocol, pitfalls

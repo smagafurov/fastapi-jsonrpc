@@ -1,0 +1,682 @@
+# fastapi-jsonrpc
+
+> JSON-RPC 2.0 server built on top of FastAPI. Write methods exactly like FastAPI endpoints and get OpenAPI, Swagger UI, and OpenRPC generated automatically. Supports batch requests, notifications, typed errors, async context-manager middlewares, and Sentry integration.
+
+Tech Stack: Python >=3.10, FastAPI >=0.123, Pydantic >=2.7 <3, Starlette, aiojobs. Version: 3.4.2.
+
+## Installation
+
+```bash
+pip install fastapi-jsonrpc
+```
+
+## Architecture
+
+### Module Hierarchy
+
+```
+fastapi_jsonrpc/
+  __init__.py           # entire public API: API, Entrypoint, BaseError, helpers
+  contrib/
+    pytest_plugin/      # pytest harness: JsonRpcTestClient, jsonrpc_client,
+      __init__.py       # error-capture + auto-validation fixtures, opt-out marker
+      conftest.py
+    sentry/             # FastApiJsonRPCIntegration for sentry-sdk 2.x
+```
+
+### Data Flow
+
+```
+HTTP POST /api/v1/jsonrpc
+         |
+   EntrypointRoute.handle_http_request
+         |
+   parse body (JSON) -> list | dict
+         |
+   solve_shared_dependencies  (Entrypoint.dependencies — once per batch)
+         |
+   [aiojobs scheduler — concurrent per-request jobs]
+         |
+   EntrypointRoute.handle_req_to_resp  (per request in batch)
+         |
+   JsonRpcContext.__aenter__  (sets contextvars, enters middlewares)
+         |
+   Entrypoint.middlewares  (async context managers, per call)
+         |
+   MethodRoute matched by method name
+         |
+   MethodRoute.middlewares  (per-method middlewares)
+         |
+   solve_dependencies  (common_dependencies + method deps)
+         |
+   method function called
+         |
+   serialize_response -> ctx.raw_response
+         |
+   JsonRpcContext.__aexit__  (middlewares see final response)
+         |
+   HTTP JSON response (single dict or list for batch)
+```
+
+## Public API
+
+### `jsonrpc.API`
+
+Subclass of `fastapi.FastAPI`. All FastAPI constructor arguments accepted.
+
+```python
+app = jsonrpc.API(
+    title='My service',
+    openrpc_url='/openrpc.json',              # None to disable OpenRPC
+    fastapi_jsonrpc_components_fine_names=True,  # False = raw FastAPI naming
+)
+
+app.bind_entrypoint(api_v1)
+```
+
+`bind_entrypoint(entrypoint)` registers the entrypoint route and one POST route per method under it. Adds a shutdown hook that closes the aiojobs scheduler.
+
+### `jsonrpc.Entrypoint`
+
+Subclass of `fastapi.APIRouter`. One instance per URL path.
+
+```python
+api_v1 = jsonrpc.Entrypoint(
+    path='/api/v1/jsonrpc',
+    name='api_v1',                              # optional, default 'entrypoint'
+    errors=[AuthError, *jsonrpc.Entrypoint.default_errors],
+    dependencies=[Depends(get_auth_user)],      # resolved once per batch
+    common_dependencies=[Depends(get_account)], # resolved once per request in batch
+    middlewares=[logging_middleware],
+    request_class=jsonrpc.JsonRpcRequest,       # override to add custom top-level fields
+    scheduler_factory=aiojobs.Scheduler,        # customise concurrency
+    scheduler_kwargs=None,
+)
+```
+
+Class attribute `Entrypoint.default_errors`:
+`[InvalidParams, MethodNotFound, ParseError, InvalidRequest, InternalError]`
+
+Registering a method:
+
+```python
+@api_v1.method(
+    errors=[MyError],
+    tags=['accounts'],
+    summary='Echo the input',
+    dependencies=[Depends(...)],       # method-level deps
+    middlewares=[span_middleware],     # method-level middlewares
+)
+def echo(data: str = Body(...)) -> str:
+    return data
+```
+
+`@api_v1.method(**kwargs)` accepts the same keyword arguments as `APIRouter.add_api_route` (`summary`, `description`, `tags`, `responses`, `dependencies`) plus `errors` and `middlewares`.
+
+### `jsonrpc.BaseError`
+
+Base class for all typed JSON-RPC errors. Raise instances; never raise bare exceptions from methods.
+
+```python
+class NotEnoughMoney(jsonrpc.BaseError):
+    CODE = 6001                     # int, required, must be unique per error class
+    MESSAGE = 'Not enough money'    # str, required
+
+    class DataModel(BaseModel):     # optional; validates error.data payload
+        balance: int
+        currency: str
+
+# Raising:
+raise NotEnoughMoney(data={'balance': 42, 'currency': 'USD'})
+```
+
+Class attributes:
+- `CODE: int` — JSON-RPC error code.
+- `MESSAGE: str` — human-readable message.
+- `DataModel: type[BaseModel] | None` — Pydantic model for `error.data`. Validated on raise.
+- `ErrorModel: type[BaseModel] | None` — model for entries inside `error.data.errors` (used by `InvalidRequest`/`InvalidParams`).
+- `data_required: bool` — default `False`; if `True`, `data` is required in schema.
+- `errors_required: bool` — default `False`.
+
+Instance methods:
+- `__init__(data=None)` — validates `data` through `DataModel` if set.
+- `get_resp() -> dict` — full JSON-RPC error response `{jsonrpc, id, error}`.
+
+### Built-in errors (JSON-RPC 2.0 spec)
+
+| Class            | Code    | Trigger                                     |
+|------------------|---------|---------------------------------------------|
+| `ParseError`     | -32700  | Body is not valid JSON                      |
+| `InvalidRequest` | -32600  | JSON is not a valid Request object          |
+| `MethodNotFound` | -32601  | No method matches `method` field            |
+| `InvalidParams`  | -32602  | Dependency or parameter validation failed   |
+| `InternalError`  | -32603  | Any unhandled exception from a method       |
+
+Any unhandled exception is converted to `InternalError` and logged via Python `logging`.
+
+### `JsonRpcContext`
+
+Available inside middlewares and via context helpers. Not constructed by user code.
+
+```python
+ctx.raw_request    # parsed but unvalidated request dict
+ctx.raw_response   # response dict being built; mutating allowed
+ctx.exception      # exception raised during method execution, or None
+ctx.is_unhandled_exception  # True if not a BaseError
+ctx.http_request   # starlette.requests.Request
+ctx.http_response  # starlette.responses.Response (sub-response for headers)
+ctx.method_route   # matched MethodRoute, or None
+ctx.background_tasks  # fastapi.BackgroundTasks
+```
+
+Context helpers (powered by `contextvars`, safe across async):
+
+```python
+from fastapi_jsonrpc import get_jsonrpc_context, get_jsonrpc_method, get_jsonrpc_request_id
+
+ctx = get_jsonrpc_context()        # -> JsonRpcContext
+method = get_jsonrpc_method()      # -> str | None
+request_id = get_jsonrpc_request_id()  # -> str | int | None
+```
+
+### `JsonRpcMiddleware`
+
+Type alias: `Callable[[JsonRpcContext], AbstractAsyncContextManager]`
+
+Middlewares are async context managers that receive a `JsonRpcContext`. They fire **once per JSON-RPC call** (once per item in a batch).
+
+```python
+from contextlib import asynccontextmanager
+import fastapi_jsonrpc as jsonrpc
+
+@asynccontextmanager
+async def logging_middleware(ctx: jsonrpc.JsonRpcContext):
+    logger.info('Request: %r', ctx.raw_request)
+    try:
+        yield
+    finally:
+        logger.info('Response: %r', ctx.raw_response)
+```
+
+Register on entrypoint: `middlewares=[logging_middleware]`.
+Register on a single method: `@api_v1.method(middlewares=[span_middleware])`.
+
+### `component_name`
+
+Decorator to give a Pydantic model a stable OpenAPI component name when the same model name is used across modules.
+
+```python
+@jsonrpc.component_name('MySharedModel', module='mypackage')
+class MyModel(BaseModel):
+    value: int
+```
+
+### `Params`
+
+Subclass of `fastapi.params.Body`. Use when the entire `params` object of the JSON-RPC request is one Pydantic model (instead of individual named fields).
+
+```python
+class EchoParams(BaseModel):
+    data: str
+
+@api_v1.method()
+def echo(params: EchoParams = jsonrpc.Params(...)) -> str:
+    return params.data
+```
+
+## Key Patterns
+
+### Minimal app
+
+```python
+import fastapi_jsonrpc as jsonrpc
+from fastapi import Body
+from pydantic import BaseModel
+
+app = jsonrpc.API()
+api_v1 = jsonrpc.Entrypoint('/api/v1/jsonrpc')
+
+
+class MyError(jsonrpc.BaseError):
+    CODE = 5000
+    MESSAGE = 'My error'
+
+    class DataModel(BaseModel):
+        details: str
+
+
+@api_v1.method(errors=[MyError])
+def echo(data: str = Body(..., examples=['hello'])) -> str:
+    if data == 'error':
+        raise MyError(data={'details': 'boom'})
+    return data
+
+
+app.bind_entrypoint(api_v1)
+```
+
+### Dependencies — batch vs per-request
+
+```python
+# get_auth_user: resolved once for the whole batch (HTTP header dependency)
+# get_account:   resolved for each JSON-RPC request inside the batch (Body param)
+
+api_v1 = jsonrpc.Entrypoint(
+    '/api/v1/jsonrpc',
+    errors=[AuthError, AccountNotFound, *jsonrpc.Entrypoint.default_errors],
+    dependencies=[Depends(get_auth_user)],
+    common_dependencies=[Depends(get_account)],
+)
+
+@api_v1.method(errors=[NotEnoughMoney])
+def withdraw(
+    account: Account = Depends(get_account),
+    amount: int = Body(..., gt=0),
+) -> Balance:
+    if account.amount - amount < 0:
+        raise NotEnoughMoney(data={'balance': {'amount': account.amount, 'currency': account.currency}})
+    account.amount -= amount
+    return Balance(amount=account.amount, currency=account.currency)
+```
+
+### Header parameters via dependencies
+
+```python
+def get_auth_user(
+    auth_token: str = Header(None, alias='user-auth-token'),
+) -> User:
+    if not auth_token:
+        raise AuthError
+    return users[auth_token]
+```
+
+Header parameters declared inside dependencies appear as HTTP header params in Swagger UI for every method that depends on them.
+
+### Yield dependencies with teardown
+
+```python
+async def db_session():
+    async with make_session() as session:
+        yield session
+        # teardown runs after response is sent; exceptions propagated
+```
+
+### Background tasks
+
+```python
+from fastapi import BackgroundTasks
+
+@api_v1.method()
+def send_invite(
+    email: str = Body(...),
+    background_tasks: BackgroundTasks = None,
+) -> None:
+    background_tasks.add_task(deliver_invite, email)
+```
+
+### Multiple entrypoints
+
+```python
+api_v1 = jsonrpc.Entrypoint('/api/v1/jsonrpc')
+api_v2 = jsonrpc.Entrypoint('/api/v2/jsonrpc')
+
+app.bind_entrypoint(api_v1)
+app.bind_entrypoint(api_v2)
+```
+
+Each entrypoint has independent errors, middlewares, and dependencies.
+
+### Async methods
+
+```python
+@api_v1.method()
+async def fetch_user(user_id: int = Body(...)) -> dict:
+    return await users_repo.get(user_id)
+```
+
+Sync methods are automatically run in a thread pool via `run_in_threadpool`.
+
+## Configuration
+
+### `API()` constructor options
+
+| Parameter                               | Default            | Effect                                          |
+|-----------------------------------------|--------------------|-------------------------------------------------|
+| `openrpc_url`                           | `"/openrpc.json"`  | OpenRPC schema URL; `None` disables it          |
+| `fastapi_jsonrpc_components_fine_names` | `True`             | Short human-friendly OpenAPI component names    |
+| Everything else                         | FastAPI defaults    | Forwarded to `FastAPI.__init__`                 |
+
+### `Entrypoint()` constructor options
+
+| Parameter             | Default                 | Effect                                            |
+|-----------------------|-------------------------|---------------------------------------------------|
+| `path`                | required                | HTTP path; methods mount at `{path}/{name}`       |
+| `errors`              | `default_errors`        | Errors shown in schema for all methods            |
+| `dependencies`        | `None`                  | Resolved once per batch (no Body params allowed)  |
+| `common_dependencies` | `None`                  | Resolved per request in batch                     |
+| `middlewares`         | `[]`                    | Applied per JSON-RPC call                         |
+| `scheduler_factory`   | `aiojobs.Scheduler`     | Controls concurrency of batch processing          |
+| `scheduler_kwargs`    | `None`                  | Passed to scheduler_factory                       |
+| `request_class`       | `JsonRpcRequest`        | Override to add custom envelope fields            |
+
+## OpenAPI and OpenRPC
+
+Three schemas exposed automatically:
+
+| URL                  | Description                               |
+|----------------------|-------------------------------------------|
+| `GET /docs`          | Swagger UI with "Try it out" per method   |
+| `GET /openapi.json`  | OpenAPI 3.x (powered by FastAPI)          |
+| `GET /openrpc.json`  | OpenRPC 1.x                              |
+
+Every JSON-RPC method is mounted as an individual POST route:
+
+```
+POST /api/v1/jsonrpc         # full envelope, batch supported
+POST /api/v1/jsonrpc/echo    # method-specific route (Swagger "Try it out")
+```
+
+Declared errors, dependencies, headers, and return types all appear in the schema automatically.
+
+Tags, summaries, descriptions: pass to `@entrypoint.method(tags=..., summary=..., description=...)`.
+
+## Testing
+
+The plugin `fastapi_jsonrpc.contrib.pytest_plugin` ships a complete harness: a JSON-RPC test client, a fixture that captures all error responses, a teardown validator that every captured error is declared in `@entrypoint.method(errors=[...])`, and a marker to opt out of validation for specific tests.
+
+### Enable the pytest plugin
+
+```python
+# conftest.py (root test directory)
+pytest_plugins = ['fastapi_jsonrpc.contrib.pytest_plugin']
+```
+
+Provide your own `app` fixture (the plugin's placeholder fails fast with an actionable message):
+
+```python
+import pytest
+import fastapi_jsonrpc as jsonrpc
+
+@pytest.fixture
+def app() -> jsonrpc.API:
+    return build_my_app()
+```
+
+### What the plugin exports
+
+| Name | Kind | Purpose |
+|------|------|---------|
+| `JsonRpcTestClient` | class | `TestClient` subclass with a `.jsonrpc(method, params, *, url, headers, request_id)` helper |
+| `jsonrpc_client` | fixture (function) | `JsonRpcTestClient(app)` entered as a context manager (FastAPI startup/shutdown fire); auto-validation enabled |
+| `all_captured_jsonrpc_error_responses` | fixture (function) | `defaultdict[MethodRoute, list[dict]]` of every JSON-RPC error response produced during the test |
+| `_check_all_captured_jsonrpc_error_responses_listed_in_method_errors` | fixture (function) | Teardown validator; fails if any captured error code is undeclared |
+| `jsonrpcapi_no_tracking_middleware` | marker | Skips middleware injection for a single test |
+
+### `JsonRpcTestClient`
+
+```python
+class JsonRpcTestClient(TestClient):
+    def jsonrpc(
+        self,
+        method: str,
+        params: dict[str, object] | None = None,
+        *,
+        url: str,
+        headers: dict[str, str] | None = None,
+        request_id: int = 0,
+    ) -> dict[str, object]:
+        ...
+```
+
+- Builds a JSON-RPC 2.0 envelope (`{"id", "jsonrpc": "2.0", "method", "params"}`), POSTs it, returns `response.json()`.
+- `params=None` → `"params": {}` (never `null`).
+- Does not assert HTTP status — tests may legitimately exercise error paths.
+
+### `jsonrpc_client` — the happy path
+
+```python
+def test_echo(jsonrpc_client):
+    resp = jsonrpc_client.jsonrpc('echo', {'data': 'hi'}, url='/api/v1/jsonrpc')
+    assert resp == {'jsonrpc': '2.0', 'id': 0, 'result': 'hi'}
+```
+
+`jsonrpc_client` depends on `_check_all_captured_jsonrpc_error_responses_listed_in_method_errors`, which in turn depends on `all_captured_jsonrpc_error_responses`. Requesting `jsonrpc_client` therefore enables the full chain: tracking middleware is injected into every entrypoint, and on teardown the test fails if any method returned an error code that is not listed in `MethodRoute.errors` or `Entrypoint.errors`. This is the single most valuable guard against JSON-RPC schema drift.
+
+On mismatch the teardown aggregates **all** offending calls across the test into one `pytest.fail` message:
+
+```
+Undeclared JSON-RPC errors leaked during test:
+  - method 'withdraw' returned error code 6002 (not in declared: [6001])
+Declare these errors via @entrypoint.method(errors=[...]) or Entrypoint(errors=[...]).
+```
+
+### Opt out of tracking for a single test
+
+```python
+@pytest.mark.jsonrpcapi_no_tracking_middleware
+def test_internal_error_fallback(jsonrpc_client):
+    resp = jsonrpc_client.jsonrpc('boom', url='/api/v1/jsonrpc')
+    assert resp['error']['code'] == -32603  # InternalError
+```
+
+When the marker is present, `all_captured_jsonrpc_error_responses` yields an empty dict without ever touching the middleware list. Tests without the marker behave exactly as before.
+
+### Fixture scopes and rationale
+
+The built-in `app` fixture is function-scoped. If constructing `jsonrpc.API` is expensive (OpenAPI/OpenRPC generation, route wiring) and the result is stateless, override it in your project as session-scoped:
+
+```python
+@pytest.fixture(scope='session')
+def app() -> jsonrpc.API:
+    import myproject.app
+    return myproject.app.app
+```
+
+`jsonrpc_client` stays function-scoped: `with JsonRpcTestClient(app):` runs FastAPI `startup`/`shutdown` events, which many tests depend on (cache warm-up, aiojobs scheduler). Re-entering the context manager per test gives clean isolation without paying the app-construction cost.
+
+### Entrypoint-bound callables via `functools.partial`
+
+Exposing a callable per entrypoint URL keeps each test one line long and makes the intent explicit. Pattern scales to as many entrypoints as the app has.
+
+```python
+import functools
+import pytest
+
+
+@pytest.fixture()
+def web_request(jsonrpc_client, web_session):
+    return functools.partial(
+        jsonrpc_client.jsonrpc,
+        url='/api/v1/web/jsonrpc',
+        headers={'x-session': web_session.token},
+    )
+
+
+@pytest.fixture()
+def private_request(jsonrpc_client, basic_auth_credentials):
+    login, password = basic_auth_credentials
+    return functools.partial(
+        jsonrpc_client.jsonrpc,
+        url='/api/v1/private/jsonrpc',
+        headers={'Authorization': _basic_auth(login, password)},
+    )
+
+
+# Usage — reads as plain domain language:
+def test_withdraw__not_enough_money__returns_error(web_request, customer):
+    resp = web_request('withdraw', {'account_id': customer.account_id, 'amount': 10**9})
+    assert resp['error'] == {
+        'code': 6001,
+        'message': 'Not enough money',
+        'data': {'balance': 42, 'currency': 'USD'},
+    }
+    assert 'result' not in resp
+```
+
+### Parametrizing across entrypoints
+
+When a method is exposed through several entrypoints (web + mobile + private) and should behave identically, a parametrized meta-fixture removes the need to duplicate the test body:
+
+```python
+@pytest.fixture(params=['web', 'mobile', 'private'])
+def any_request(request, web_request, mobile_request, private_request):
+    return {
+        'web': web_request,
+        'mobile': mobile_request,
+        'private': private_request,
+    }[request.param]
+
+
+def test_echo__all_entrypoints(any_request):
+    assert any_request('echo', {'data': 'hi'})['result'] == 'hi'
+```
+
+### Inspecting captured errors inside the test body
+
+If you want to assert on captured errors during the test (not just rely on teardown validation), request `all_captured_jsonrpc_error_responses` alongside `jsonrpc_client`:
+
+```python
+def test_withdraw_rejects_empty_balance(
+    jsonrpc_client,
+    all_captured_jsonrpc_error_responses,
+):
+    jsonrpc_client.jsonrpc(
+        'withdraw',
+        {'account_id': '1.1', 'amount': 1_000_000},
+        url='/api/v1/jsonrpc',
+    )
+    assert all_captured_jsonrpc_error_responses, 'expected a JSON-RPC error'
+```
+
+If a method raises a plain Python exception (anything that is **not** a `BaseError`), the fixture fails the test immediately with the formatted traceback — it is very hard to accidentally let an `InternalError` slip into production.
+
+### Assertion helpers
+
+Two lightweight helpers eliminate 80 % of assertion noise on JSON-RPC responses:
+
+```python
+class AnyDict(dict):
+    """Dict that compares equal if all listed keys match; ignores extras."""
+    def __eq__(self, other):
+        if not isinstance(other, dict):
+            return NotImplemented
+        return all(other.get(k) == v for k, v in self.items())
+    def __hash__(self):
+        return id(self)
+
+
+# Usage — ignore server-added fields like 'trace_id', 'debug':
+assert resp['error'] == AnyDict({'code': 6001, 'message': 'Not enough money'})
+```
+
+Pydantic's `model.model_dump()` on the expected side works too, but an `AnyDict` keeps the test readable and stable across non-semantic response changes.
+
+### Testing methods directly
+
+JSON-RPC methods are plain Python functions — call them in unit tests without HTTP. Use `app.dependency_overrides` for DI.
+
+```python
+app.dependency_overrides[get_auth_user] = lambda: fake_user
+
+def test_echo():
+    assert echo(data='hello') == 'hello'
+```
+
+## Sentry Integration
+
+```python
+import sentry_sdk
+from fastapi_jsonrpc.contrib.sentry import FastApiJsonRPCIntegration
+
+sentry_sdk.init(
+    dsn='...',
+    integrations=[FastApiJsonRPCIntegration()],
+)
+```
+
+- JSON-RPC method name becomes the Sentry transaction name (not the HTTP path).
+- Each method in a batch is a span inside one transaction.
+- Requires `sentry-sdk >=2.0`.
+- Implicit auto-attach (sentry-sdk 1.x style) is deprecated and will be removed.
+
+## Wire Protocol
+
+### Single request
+
+```json
+{"jsonrpc": "2.0", "id": 1, "method": "echo", "params": {"data": "hello"}}
+```
+
+### Batch request (array)
+
+```json
+[
+  {"jsonrpc": "2.0", "id": 1, "method": "echo",     "params": {"data": "hi"}},
+  {"jsonrpc": "2.0", "id": 2, "method": "withdraw",  "params": {"account_id": "1.1", "amount": 10}}
+]
+```
+
+Batch requests are processed concurrently via aiojobs. Response is an array.
+
+### Notification (no `id`)
+
+```json
+{"jsonrpc": "2.0", "method": "echo", "params": {"data": "hello"}}
+```
+
+No response body. Method runs in the scheduler but the HTTP response is empty.
+
+### Successful response
+
+```json
+{"jsonrpc": "2.0", "id": 1, "result": "hello"}
+```
+
+### Error response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": 6001,
+    "message": "Not enough money",
+    "data": {"balance": 42, "currency": "USD"}
+  }
+}
+```
+
+## Common Pitfalls
+
+### Entrypoint `dependencies` cannot use `Body` params
+
+`dependencies` on `Entrypoint` are resolved once per batch before individual request bodies are read. Use `common_dependencies` for anything that needs a JSON-RPC body parameter.
+
+```python
+# WRONG: Body param in batch-level dependency
+def get_resource(resource_id: str = Body(...)):  # raises RuntimeError at startup
+    ...
+api_v1 = jsonrpc.Entrypoint('/rpc', dependencies=[Depends(get_resource)])
+
+# CORRECT
+api_v1 = jsonrpc.Entrypoint('/rpc', common_dependencies=[Depends(get_resource)])
+```
+
+### Only one `Params` allowed per method
+
+If you use `jsonrpc.Params(...)` as the whole-params model, no other Body params are allowed in the same method.
+
+### Error codes must be unique per class
+
+Two `BaseError` subclasses with the same `CODE` will collide in OpenRPC schema generation. Use distinct codes in the application range (e.g. 5000-9999).
+
+### Schema component name collisions
+
+If two Pydantic models from different modules share the same class name, use `@jsonrpc.component_name('UniqueName', module='mymodule')` to disambiguate.
+
+### Sentry implicit integration is deprecated
+
+Passing `sentry-sdk` 1.x without explicit `FastApiJsonRPCIntegration()` triggers a deprecation warning. Migrate to explicit configuration.
+
+---
+*Generated by documentation-keeper on 2026-04-09, based on commit `1408c30` (chore(deps): rst_include can't be installed anymore)*
