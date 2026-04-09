@@ -122,3 +122,6 @@ lang = "en"
 "BaseError" = "reference/errors.md"
 [[project.nav."Reference"]]
 "Context" = "reference/context.md"
+
+[[project.nav]]
+"LLM Context" = "llms.md"
