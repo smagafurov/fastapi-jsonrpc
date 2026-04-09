@@ -24,7 +24,6 @@ starlette = ">0.0.0"
 
 [tool.poetry.group.dev.dependencies]
 uvicorn = "^0.17.0"
-rst_include = "^2.1.0"
 pytest = "^9.0"
 sentry-sdk = "^2.0"
 requests = ">0.0.0"
