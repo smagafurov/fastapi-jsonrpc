@@ -1,41 +1,51 @@
-[tool.poetry]
+[project]
 name = "fastapi-jsonrpc"
 version = "3.4.2"
 description = "JSON-RPC server based on fastapi"
 license = "MIT"
-authors = ["Sergey Magafurov <magafurov@tochka.com>"]
+authors = [
+    {name = "Sergey Magafurov", email = "magafurov@tochka.com"},
+]
 readme = "README.md"
-repository = "https://github.com/smagafurov/fastapi-jsonrpc"
-homepage = "https://github.com/smagafurov/fastapi-jsonrpc"
-documentation = "https://smagafurov.github.io/fastapi-jsonrpc/"
-keywords = ['json-rpc', 'asgi', 'swagger', 'openapi', 'fastapi', 'pydantic', 'starlette']
-exclude = ["example1.py", "example2.py"]
-
-[tool.poetry.dependencies]
-python = "^3.10"
-aiojobs = ">=1.1.0"
-fastapi = [
-    {version = ">=0.123"},
+requires-python = ">=3.10"
+keywords = ["json-rpc", "asgi", "swagger", "openapi", "fastapi", "pydantic", "starlette"]
+dependencies = [
+    "aiojobs>=1.1.0",
+    "fastapi>=0.123,<0.135",  # 0.135 removed APIRoute.secure_cloned_response_field; compat fix pending
+    "pydantic>=2.7.0,<3.0.0",
+    "starlette<1.0.0",  # 1.0 removed add_event_handler; compat fix pending
 ]
-pydantic = [
-    {version = ">=2.7.0"},
-    {version = "<3.0.0"},
+
+[project.urls]
+Homepage = "https://github.com/smagafurov/fastapi-jsonrpc"
+Repository = "https://github.com/smagafurov/fastapi-jsonrpc"
+Documentation = "https://smagafurov.github.io/fastapi-jsonrpc/"
+
+[dependency-groups]
+dev = [
+    "uvicorn>=0.17.0,<0.18.0",
+    "pytest>=9.0",
+    "sentry-sdk>=2.0",
+    "requests",
+    "httpx>=0.27.0,<0.29.0",  # FastAPI/Starlette extra test deps
 ]
-starlette = ">0.0.0"
+docs = [
+    "zensical",
+]
 
-[tool.poetry.group.dev.dependencies]
-uvicorn = "^0.17.0"
-pytest = "^9.0"
-sentry-sdk = "^2.0"
-requests = ">0.0.0"
-httpx = ">=0.27.0,<0.29.0"  # FastAPI/Starlette extra test deps
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "example1.py",
+    "example2.py",
+]
 
-[tool.poetry.group.docs]
-optional = true
-
-[tool.poetry.group.docs.dependencies]
-zensical = "*"
+[tool.hatch.build.targets.wheel]
+packages = ["fastapi_jsonrpc"]
+exclude = [
+    "example1.py",
+    "example2.py",
+]
 
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
