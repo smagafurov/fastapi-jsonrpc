@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `fastapi-jsonrpc` — JSON-RPC 2.0 server on top of FastAPI. Methods are written like FastAPI endpoints and OpenAPI / Swagger UI / OpenRPC are generated automatically. Supports batch requests, notifications, typed errors with Pydantic `DataModel`, async context-manager middlewares, and a Sentry integration.
 
-Python `>=3.10`, FastAPI `>=0.123,<0.135`, Pydantic `>=2.7,<3`, Starlette `<1.0`. Dependency management via **uv** (PEP 621 `[project]` + PEP 735 `[dependency-groups]`, build backend `hatchling`). The fastapi/starlette upper bounds are compatibility fixes pending — see the `compat fix pending` comments in `pyproject.toml`.
+Python `>=3.10`, FastAPI `>=0.135`, Pydantic `>=2.7,<3`, Starlette `>=1.0`. Dependency management via **uv** (PEP 621 `[project]` + PEP 735 `[dependency-groups]`, build backend `hatchling`).
 
 ## Commands
 
