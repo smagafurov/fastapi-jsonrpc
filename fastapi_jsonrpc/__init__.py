@@ -30,7 +30,9 @@ from starlette.background import BackgroundTasks
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import Response, JSONResponse
-from starlette.routing import Match, compile_path
+from starlette.routing import Match, compile_path, Mount
+from starlette.types import Lifespan
+from fastapi.routing import _DefaultLifespan  # noqa: WPS450  starlette's _DefaultLifespan is a no-op; fastapi's runs on_startup/on_shutdown
 import fastapi.params
 import aiojobs
 import warnings
@@ -928,7 +930,7 @@ class MethodRoute(APIRoute):
 
         # noinspection PyTypeChecker
         resp = await serialize_response(
-            field=self.secure_cloned_response_field,
+            field=self.response_field,
             response_content=response,
             include=self.response_model_include,
             exclude=self.response_model_exclude,
@@ -1373,14 +1375,45 @@ class API(FastAPI):
         *args,
         fastapi_jsonrpc_components_fine_names: bool = True,
         openrpc_url: Optional[str] = "/openrpc.json",
+        lifespan: Optional[Lifespan["API"]] = None,
         **kwargs,
     ):
         self.fastapi_jsonrpc_components_fine_names = fastapi_jsonrpc_components_fine_names
         self.openrpc_schema = None
         self.openrpc_url = openrpc_url
         self.shutdown_functions: List = []
-        super().__init__(*args, **kwargs)
-        self.add_event_handler("shutdown", self.run_shutdown_functions)
+
+        user_lifespan = lifespan  # capture before super().__init__ consumes the name
+
+        @asynccontextmanager
+        async def composed_lifespan(app: "API"):
+            async with AsyncExitStack() as stack:
+                # 1. Starlette default router lifespan — keeps FastAPI's
+                #    @app.on_event(...) deprecation shim working.
+                await stack.enter_async_context(_DefaultLifespan(app.router))
+
+                # 2. Propagate lifespan into nested Mount-ed FastAPI sub-apps.
+                #    Workaround for https://github.com/Kludex/starlette/issues/649
+                for route in app.routes:
+                    if isinstance(route, Mount) and isinstance(route.app, FastAPI):
+                        await stack.enter_async_context(
+                            route.app.router.lifespan_context(route.app),
+                        )
+
+                # 3. Compose user-supplied lifespan, if any. Entered LAST on setup
+                #    so it unwinds FIRST on teardown (LIFO), giving the user the
+                #    outermost "own" boundary.
+                if user_lifespan is not None:
+                    await stack.enter_async_context(user_lifespan(app))
+
+                try:
+                    yield
+                finally:
+                    # Late-binding: iterate the attribute, not a captured snapshot,
+                    # so entrypoints bound after lifespan-enter still fire on exit.
+                    await self.run_shutdown_functions()
+
+        super().__init__(*args, lifespan=composed_lifespan, **kwargs)
 
     def _restore_json_schema_fine_component_names(self, data: dict):
         """Restore human-readable schema names and clean up module prefixes.

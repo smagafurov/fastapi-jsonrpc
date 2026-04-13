@@ -68,6 +68,26 @@ Run it with `uvicorn` and open:
 
 See the full docs at <https://smagafurov.github.io/fastapi-jsonrpc/>.
 
+## Development
+
+```bash
+# Install dependencies
+uv sync --frozen --group dev
+
+# Run tests
+uv run --frozen python -m pytest
+
+# Run a single test
+uv run --frozen python -m pytest tests/test_jsonrpc.py::test_name -x
+
+# Change dependencies — edit pyproject.toml, then:
+uv lock
+
+# Build and publish
+uv build
+uv publish
+```
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

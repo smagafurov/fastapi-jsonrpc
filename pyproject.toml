@@ -11,9 +11,9 @@ requires-python = ">=3.10"
 keywords = ["json-rpc", "asgi", "swagger", "openapi", "fastapi", "pydantic", "starlette"]
 dependencies = [
     "aiojobs>=1.1.0",
-    "fastapi>=0.123,<0.135",  # 0.135 removed APIRoute.secure_cloned_response_field; compat fix pending
+    "fastapi>=0.135",
     "pydantic>=2.7.0,<3.0.0",
-    "starlette<1.0.0",  # 1.0 removed add_event_handler; compat fix pending
+    "starlette>=1.0",
 ]
 
 [project.urls]
