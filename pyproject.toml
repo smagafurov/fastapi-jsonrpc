@@ -1,6 +1,6 @@
 [project]
 name = "fastapi-jsonrpc"
-version = "3.4.2"
+version = "3.4.3"
 description = "JSON-RPC server based on fastapi"
 license = "MIT"
 authors = [
