@@ -62,7 +62,15 @@ def test_basic(ep, app, app_client):
                 }
             },
             'tags': [],
-            'errors': []
+            'errors': [],
+            'servers': [
+                {
+                    'url': 'http://localhost/api/v1/jsonrpc',
+                    'name': 'entrypoint',
+                    'summary': '',
+                    'description': '',
+                }
+            ],
         }
     ]
 

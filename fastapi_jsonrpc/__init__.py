@@ -1538,6 +1538,7 @@ class API(FastAPI):
         schemas_spec = {}
         errors_by_code = defaultdict(set)
         ref_template = '#/components/schemas/{model}'
+        server_url_list = [server.get('url') for server in self.servers if server.get('url')] or ['http://localhost']
 
         for route in self.routes:
             if not isinstance(route, MethodRoute):
@@ -1553,6 +1554,8 @@ class API(FastAPI):
 
             for error in route.errors:
                 errors_by_code[error.CODE].add(error)
+
+            entrypoint_route = route.entrypoint.entrypoint_route
 
             method_spec = {
                 'name': route.name,
@@ -1580,6 +1583,15 @@ class API(FastAPI):
                     }
                     for code in sorted({error.CODE for error in route.errors})
                 ],
+                'servers': [
+                    {
+                        "url": f"{url}{entrypoint_route.path}",
+                        "name": entrypoint_route.name,
+                        "description": entrypoint_route.description or '',
+                        "summary": entrypoint_route.summary or '',
+                    }
+                    for url in server_url_list
+                ]
             }
             if route.summary:
                 method_spec['summary'] = route.summary
