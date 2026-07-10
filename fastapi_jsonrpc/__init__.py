@@ -92,6 +92,11 @@ class Params(fastapi.params.Body):
         examples: Optional[List[Any]] = None,
         **extra: Any,
     ):
+        # fastapi.params.Body warns whenever `example` is not its own `_Unset` sentinel,
+        # so only forward it when the caller actually supplied one.
+        if example is not Undefined:
+            extra['example'] = example
+
         super().__init__(
             default,
             embed=False,
@@ -106,7 +111,6 @@ class Params(fastapi.params.Body):
             min_length=min_length,
             max_length=max_length,
             regex=regex,
-            example=example,
             examples=examples,
             **extra,
         )
