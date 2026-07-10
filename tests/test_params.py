@@ -1,4 +1,7 @@
+import warnings
+
 import pytest
+from fastapi.datastructures import _Unset
 from pydantic import BaseModel, Field
 from typing import List
 
@@ -597,3 +600,25 @@ def test_openapi(app_client, openapi_compatible):
             },
         },
     })
+
+
+def _example_deprecation_warnings(record):
+    return [w for w in record if '`example` has been deprecated' in str(w.message)]
+
+
+def test_params_without_example_does_not_warn():
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter('always')
+        params = Params(...)
+
+    assert _example_deprecation_warnings(record) == []
+    assert params.example is _Unset
+
+
+def test_params_forwards_explicit_example():
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter('always')
+        params = Params(..., example='probe-example')
+
+    assert len(_example_deprecation_warnings(record)) == 1
+    assert params.example == 'probe-example'
