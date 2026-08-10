@@ -9,6 +9,7 @@ test itself.
 Inner test files must declare `pytest_plugins = ['fastapi_jsonrpc.contrib.pytest_plugin']`
 to activate the plugin under test (R7).
 """
+from contextlib import asynccontextmanager
 import textwrap
 
 import fastapi_jsonrpc as jsonrpc
@@ -400,12 +401,14 @@ def test_S3_f_jsonrpc_client_context_manager():
     def noop() -> str:
         return 'ok'
 
-    app = jsonrpc.API()
+    @asynccontextmanager
+    async def lifespan(app):
+        startup_events.append(1)
+        yield
+
+    app = jsonrpc.API(lifespan=lifespan)
     app.bind_entrypoint(ep)
 
-    @app.on_event('startup')
-    async def _on_startup() -> None:
-        startup_events.append(1)
 
     with JsonRpcTestClient(app) as client:
         resp = client.jsonrpc('noop', url='/api')

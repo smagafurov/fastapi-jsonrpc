@@ -34,6 +34,7 @@ from starlette.routing import Match, compile_path, Mount
 from starlette.types import Lifespan
 from fastapi.routing import _DefaultLifespan  # noqa: WPS450  starlette's _DefaultLifespan is a no-op; fastapi's runs on_startup/on_shutdown
 import fastapi.params
+import inspect
 import aiojobs
 import warnings
 
@@ -402,7 +403,7 @@ class NoContent(Exception):
 
 
 async def call_sync_async(call, *args, **kwargs):
-    is_coroutine = asyncio.iscoroutinefunction(call)
+    is_coroutine = inspect.iscoroutinefunction(call)
     if is_coroutine:
         return await call(*args, **kwargs)
     else:
