@@ -519,6 +519,32 @@ def insert_dependencies(target: Dependant, dependencies: Optional[Sequence[Depen
         )
 
 
+def check_shared_dependencies(path: str, dependencies: Optional[Sequence[Depends]] = None):
+    """Reject entrypoint-wide dependencies that ask for params of a single JSON-RPC request.
+
+    They are solved once per HTTP request, before any request of the batch is read,
+    so there is no body and no query string of "the" request to take params from.
+    """
+    if not dependencies:
+        return
+
+    shared_dependant = Dependant(path=path)
+    insert_dependencies(shared_dependant, dependencies)
+    shared_dependant = flatten_dependant(shared_dependant)
+
+    if shared_dependant.body_params:
+        raise RuntimeError(
+            f"Entrypoint shared dependencies can't use 'Body' parameters: "
+            f"params={shared_dependant.body_params}"
+        )
+
+    if shared_dependant.query_params:
+        raise RuntimeError(
+            f"Entrypoint shared dependencies can't use 'Query' parameters: "
+            f"params={shared_dependant.query_params}"
+        )
+
+
 def make_request_model(name: str, module: str, body_params: List[ModelField]) -> Type[BaseModel]:
     whole_params_list = [p for p in body_params if isinstance(p.field_info, Params)]
     if len(whole_params_list):
@@ -1011,6 +1037,7 @@ class EntrypointRoute(APIRoute):
         *,
         name: Optional[str] = None,
         errors: Optional[List[Type[BaseError]]] = None,
+        dependencies: Optional[Sequence[Depends]] = None,
         common_dependencies: Optional[Sequence[Depends]] = None,
         response_class: Type[Response] = JSONResponse,
         request_class: Type[JsonRpcRequest] = JsonRpcRequest,
@@ -1019,6 +1046,10 @@ class EntrypointRoute(APIRoute):
         name = name or 'entrypoint'
 
         _, path_format, _ = compile_path(path)
+
+        # Must run before the route is built: fastapi fails on such a dependency itself,
+        # with a message that says nothing about json-rpc
+        check_shared_dependencies(path_format, dependencies)
 
         _Request = request_class
 
@@ -1045,23 +1076,9 @@ class EntrypointRoute(APIRoute):
             response_class=response_class,
             response_model=JsonRpcResponse,
             responses=responses,
+            dependencies=dependencies,
             **kwargs,
         )
-
-        flat_dependant = flatten_dependant(self.dependant)
-
-        if len(flat_dependant.body_params) > 1:
-            body_params = [p for p in flat_dependant.body_params if p.type_ is not _Request]
-            raise RuntimeError(
-                f"Entrypoint shared dependencies can't use 'Body' parameters: "
-                f"params={body_params}"
-            )
-
-        if flat_dependant.query_params:
-            raise RuntimeError(
-                f"Entrypoint shared dependencies can't use 'Query' parameters: "
-                f"params={flat_dependant.query_params}"
-            )
 
         self.shared_dependant = copy.deepcopy(self.dependant)
 

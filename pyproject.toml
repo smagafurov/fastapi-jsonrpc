@@ -11,7 +11,7 @@ requires-python = ">=3.10"
 keywords = ["json-rpc", "asgi", "swagger", "openapi", "fastapi", "pydantic", "starlette"]
 dependencies = [
     "aiojobs>=1.1.0",
-    "fastapi>=0.135",
+    "fastapi>=0.135.2",
     "pydantic>=2.7.0,<3.0.0",
     "starlette>=1.0",
 ]

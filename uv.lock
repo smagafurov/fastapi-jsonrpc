@@ -265,7 +265,7 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "aiojobs", specifier = ">=1.1.0" },
-    { name = "fastapi", specifier = ">=0.135" },
+    { name = "fastapi", specifier = ">=0.135.2" },
     { name = "pydantic", specifier = ">=2.7.0,<3.0.0" },
     { name = "starlette", specifier = ">=1.0" },
 ]
