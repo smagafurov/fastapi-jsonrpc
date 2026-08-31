@@ -56,6 +56,7 @@ except ImportError:
 if hasattr(sentry_sdk, 'new_scope'):
     # sentry_sdk 2.x
     sentry_new_scope = sentry_sdk.new_scope
+    sentry_is_initialized = sentry_sdk.is_initialized
 
     def get_sentry_integration():
         return sentry_sdk.get_client().get_integration(
@@ -69,6 +70,9 @@ else:
         with sentry_sdk.Hub(hub) as hub:
             with hub.configure_scope() as scope:
                 yield scope
+
+    def sentry_is_initialized():
+        return sentry_sdk.Hub.current.client is not None
 
     get_sentry_integration = lambda : None
 
@@ -678,6 +682,9 @@ class JsonRpcContext:
         self.exit_stack = await AsyncExitStack().__aenter__()
         if (
             sentry_sdk is not None
+            # merely installed is not in use: without a client the scope work below is a no-op,
+            # and the deprecation notice would reach people who never asked for Sentry
+            and sentry_is_initialized()
             and get_sentry_integration() is None
         ):
             self.exit_stack.enter_context(self._enter_old_sentry_integration())

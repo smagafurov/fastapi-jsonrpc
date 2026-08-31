@@ -110,7 +110,13 @@ def sentry_with_integration(sentry_init):
 
 @pytest.fixture
 def sentry_no_integration(sentry_init):
-    sentry_init()
+    # sentry's own Starlette/FastAPI integrations patch globally and stay patched once
+    # installed, adding a transaction to every later test — keep them out, as
+    # `sentry_with_integration` does
+    sentry_init(
+        transport=TestTransport(),
+        disabled_integrations=[StarletteIntegration, FastApiIntegration],
+    )
 
 
 class TestTransport(Transport):
