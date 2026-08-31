@@ -1324,7 +1324,10 @@ class Entrypoint(APIRouter):
         self.scheduler_kwargs = scheduler_kwargs
         self.request_class = request_class
         self.scheduler = None
-        self.callee_module = inspect.getmodule(inspect.stack()[1][0]).__name__
+        callee_frame = inspect.stack()[1][0]
+        callee_module = inspect.getmodule(callee_frame)
+        # `python -c`, exec() and notebook cells run in code that belongs to no module
+        self.callee_module = callee_module.__name__ if callee_module else callee_frame.f_globals.get('__name__')
         self.entrypoint_route = self.entrypoint_route_class(
             self,
             path,
