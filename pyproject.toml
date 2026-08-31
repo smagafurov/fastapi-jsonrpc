@@ -33,6 +33,11 @@ docs = [
     "zensical",
 ]
 
+[tool.pytest.ini_options]
+# Without this pytest walks the package too and tries to collect
+# fastapi_jsonrpc/contrib/sentry/test_utils.py — a helper module, not a test
+testpaths = ["tests"]
+
 [tool.hatch.build.targets.sdist]
 exclude = [
     "example1.py",
