@@ -1,3 +1,4 @@
+import importlib.util
 import logging
 import platform
 import sys
@@ -168,3 +169,6 @@ def openapi_compatible():
 collect_ignore = []
 if sys.version_info < (3, 12):
     collect_ignore.append("test_openrpc_type_keyword.py")
+if importlib.util.find_spec("sentry_sdk") is None:
+    # sentry-sdk is an optional integration, its tests can't run without it
+    collect_ignore.append("sentry")
