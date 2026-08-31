@@ -402,7 +402,7 @@ class NoContent(Exception):
 
 
 async def call_sync_async(call, *args, **kwargs):
-    is_coroutine = asyncio.iscoroutinefunction(call)
+    is_coroutine = inspect.iscoroutinefunction(call)
     if is_coroutine:
         return await call(*args, **kwargs)
     else:
