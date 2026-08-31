@@ -21,7 +21,7 @@ from fastapi.dependencies.models import Dependant
 from fastapi.encoders import jsonable_encoder
 from fastapi.params import Depends
 from fastapi import FastAPI, Body
-from fastapi.dependencies.utils import solve_dependencies, get_dependant, get_flat_dependant, \
+from fastapi.dependencies.utils import solve_dependencies, get_dependant, \
     get_parameterless_sub_dependant
 from fastapi.exceptions import RequestValidationError, HTTPException
 from fastapi.routing import APIRoute, APIRouter, request_response, serialize_response
@@ -463,6 +463,39 @@ def invalid_params_from_validation_error(exc: typing.Union[ValidationError, Requ
     return InvalidParams(data={'errors': errors})
 
 
+def flatten_dependant(dependant: Dependant) -> Dependant:
+    """Gather params of the whole dependency tree into a single Dependant.
+
+    Stands in for fastapi's `get_flat_dependant`, which fastapi 0.140 dropped.
+    Only params are hoisted: `dependencies` stay the direct sub-dependants with
+    their own subtrees, which is what fastapi's own traversals expect.
+    """
+    flat = Dependant(path=dependant.path, call=dependant.call, name=dependant.name)
+
+    visited = set()
+    to_visit = [dependant]
+    while to_visit:
+        current = to_visit.pop()
+        # Same identity fastapi uses for its dependency cache: a dependency reachable
+        # through several branches is solved once, so it contributes its params once.
+        key = (current.call, current.scope, tuple(current.own_oauth_scopes or ()))
+        if key in visited:
+            continue
+        visited.add(key)
+
+        flat.path_params.extend(current.path_params)
+        flat.query_params.extend(current.query_params)
+        flat.header_params.extend(current.header_params)
+        flat.cookie_params.extend(current.cookie_params)
+        flat.body_params.extend(current.body_params)
+
+        to_visit.extend(reversed(current.dependencies))
+
+    flat.dependencies.extend(dependant.dependencies)
+
+    return flat
+
+
 def fix_query_dependencies(dependant: Dependant):
     dependant.body_params.extend(dependant.query_params)
     dependant.query_params = []
@@ -728,7 +761,7 @@ class MethodRoute(APIRoute):
         insert_dependencies(func_dependant, dependencies)
         insert_dependencies(func_dependant, entrypoint.common_dependencies)
         fix_query_dependencies(func_dependant)
-        flat_dependant = get_flat_dependant(func_dependant, skip_repeats=True)
+        flat_dependant = flatten_dependant(func_dependant)
 
         _Request = make_request_model(name, func.__module__, flat_dependant.body_params)
         _Response = make_response_model(name, func.__module__, result_model)
@@ -993,7 +1026,7 @@ class EntrypointRoute(APIRoute):
         if common_dependencies:
             insert_dependencies(common_dependant, common_dependencies)
             fix_query_dependencies(common_dependant)
-            common_dependant = get_flat_dependant(common_dependant, skip_repeats=True)
+            common_dependant = flatten_dependant(common_dependant)
 
             if common_dependant.body_params:
                 _Request = make_request_model(name, entrypoint.callee_module, common_dependant.body_params)
@@ -1015,7 +1048,7 @@ class EntrypointRoute(APIRoute):
             **kwargs,
         )
 
-        flat_dependant = get_flat_dependant(self.dependant, skip_repeats=True)
+        flat_dependant = flatten_dependant(self.dependant)
 
         if len(flat_dependant.body_params) > 1:
             body_params = [p for p in flat_dependant.body_params if p.type_ is not _Request]
