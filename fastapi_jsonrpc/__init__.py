@@ -1378,6 +1378,8 @@ class Entrypoint(APIRouter):
         return resp
 
     def bind_dependency_overrides_provider(self, value):
+        # kept on the entrypoint too, so methods registered after binding get it as well
+        self.dependency_overrides_provider = value
         for route in self.routes:
             route.dependency_overrides_provider = value
 
@@ -1405,6 +1407,7 @@ class Entrypoint(APIRouter):
         name = name or func.__name__
         tags = list(self.entrypoint_route.tags)
         tags.extend(kwargs.pop('tags', ()))
+        kwargs.setdefault('dependency_overrides_provider', self.dependency_overrides_provider)
         route = self.method_route_class(
             self,
             self.entrypoint_route.path + '/' + name,
