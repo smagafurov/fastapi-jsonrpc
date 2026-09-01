@@ -62,6 +62,18 @@ def test_basic(echo, json_request, request_id, ep_wait_all_requests_done):
     assert echo.history == ['data-123']
 
 
+def test_null_id_is_request(echo, json_request, ep_wait_all_requests_done):
+    resp = json_request({
+        'id': None,
+        'jsonrpc': '2.0',
+        'method': 'echo',
+        'params': {'data': 'data-null'},
+    })
+    assert resp == {'id': None, 'jsonrpc': '2.0', 'result': 'data-null'}
+    ep_wait_all_requests_done()
+    assert echo.history == ['data-null']
+
+
 def test_notify(echo, raw_request, ep_wait_all_requests_done):
     resp = raw_request(json_dumps({
         'jsonrpc': '2.0',
@@ -298,6 +310,12 @@ def test_batch(echo, json_request, ep_wait_all_requests_done):
             'params': {'data': 'data-notify'},
         },
         {
+            'id': None,
+            'jsonrpc': '2.0',
+            'method': 'echo',
+            'params': {'data': 'data-null'},
+        },
+        {
             'id': 'qwe',
             'jsonrpc': '2.0',
             'method': 'echo',
@@ -312,11 +330,12 @@ def test_batch(echo, json_request, ep_wait_all_requests_done):
     ])
     assert resp == [
         {'id': 111, 'jsonrpc': '2.0', 'result': 'data-111'},
+        {'id': None, 'jsonrpc': '2.0', 'result': 'data-null'},
         {'id': 'qwe', 'jsonrpc': '2.0', 'result': 'data-qwe'},
         {'id': 'method-not-found', 'jsonrpc': '2.0', 'error': {'code': -32601, 'message': 'Method not found'}},
     ]
     ep_wait_all_requests_done()
-    assert set(echo.history) == {'data-111', 'data-notify', 'data-qwe'}
+    assert set(echo.history) == {'data-111', 'data-notify', 'data-null', 'data-qwe'}
 
 
 def test_empty_batch(echo, json_request):

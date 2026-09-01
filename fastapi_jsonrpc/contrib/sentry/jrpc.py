@@ -22,7 +22,7 @@ if hasattr(sentry_sdk.tracing, 'TransactionSource'):
     TRANSACTION_SOURCE_CUSTOM = sentry_sdk.tracing.TransactionSource.CUSTOM
 else:
     # sentry_sdk ^2.0
-    TRANSACTION_SOURCE_CUSTOM = sentry_sdk.tracing.TRANSACTION_SOURCE_CUSTOM
+    TRANSACTION_SOURCE_CUSTOM = sentry_sdk.tracing.TRANSACTION_SOURCE_CUSTOM  # type: ignore[attr-defined]
 
 
 @asynccontextmanager
@@ -55,10 +55,10 @@ async def jrpc_transaction_middleware(ctx: JsonRpcContext):
             # no parent transaction, start a new trace
             transaction = JrpcTransaction(
                 trace_id=current_asgi_context["sampled_sentry_trace_id"].hex,
-                **transaction_params,  # type: ignore
+                **transaction_params,  # type: ignore[arg-type]
             )
 
-        integration: FastApiJsonRPCIntegration | None = sentry_sdk.get_client().get_integration(  # type: ignore
+        integration: FastApiJsonRPCIntegration | None = sentry_sdk.get_client().get_integration(  # type: ignore[assignment]
             "FastApiJsonRPCIntegration"
         )
         name_generator = integration.transaction_name_generator if integration else default_transaction_name_generator
@@ -115,6 +115,8 @@ def make_transaction_info_event_processor(ctx: JsonRpcContext, name_generator: T
 
 
 def default_transaction_name_generator(ctx: JsonRpcContext) -> str:
+    if ctx.method_route is None:
+        return _DEFAULT_TRANSACTION_NAME
     return f"JRPC:{ctx.method_route.name}"
 
 
@@ -122,20 +124,24 @@ def prepend_jrpc_transaction_middleware():  # noqa: C901
     # prepend the jrpc_sentry_transaction_middleware to the middlewares list.
     # we cannot patch Entrypoint _init_ directly,  since objects can be created before invoking this integration
 
+    patched_middlewares_key = "__patched_middlewares__"
+
     def _prepend_transaction_middleware(self: Entrypoint):
-        if not hasattr(self, "__patched_middlewares__"):
-            original_middlewares = self.__dict__.get("middlewares", [])
-            self.__patched_middlewares__ = original_middlewares
+        patched_middlewares = self.__dict__.get(patched_middlewares_key)
+        if patched_middlewares is None:
+            patched_middlewares = self.__dict__.get("middlewares", [])
+            self.__dict__[patched_middlewares_key] = patched_middlewares
 
         # middleware was passed manually
-        if jrpc_transaction_middleware in self.__patched_middlewares__:
-            return self.__patched_middlewares__
+        if jrpc_transaction_middleware in patched_middlewares:
+            return patched_middlewares
 
-        self.__patched_middlewares__ = [jrpc_transaction_middleware, *self.__patched_middlewares__]
-        return self.__patched_middlewares__
+        patched_middlewares = [jrpc_transaction_middleware, *patched_middlewares]
+        self.__dict__[patched_middlewares_key] = patched_middlewares
+        return patched_middlewares
 
     def _middleware_setter(self: Entrypoint, value):
-        self.__patched_middlewares__ = value
+        self.__dict__[patched_middlewares_key] = value
         _prepend_transaction_middleware(self)
 
     Entrypoint.middlewares = property(_prepend_transaction_middleware, _middleware_setter)

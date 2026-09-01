@@ -28,6 +28,7 @@ Documentation = "https://smagafurov.github.io/fastapi-jsonrpc/"
 dev = [
     "uvicorn>=0.17.0,<0.18.0",
     "pytest>=9.0",
+    "mypy>=2.3,<3",
     # the harness uses sentry_sdk.get_global_scope(), added in 2.12; the library itself needs only 2.0
     "sentry-sdk>=2.12",
     "requests",
@@ -41,6 +42,12 @@ docs = [
 # Without this pytest walks the package too and tries to collect
 # fastapi_jsonrpc/contrib/sentry/test_utils.py — a helper module, not a test
 testpaths = ["tests"]
+
+[tool.mypy]
+files = ["fastapi_jsonrpc"]
+python_version = "3.10"
+show_error_codes = true
+warn_unused_ignores = true
 
 [tool.hatch.build.targets.sdist]
 exclude = [

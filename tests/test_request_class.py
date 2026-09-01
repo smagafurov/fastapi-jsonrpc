@@ -34,6 +34,17 @@ def test_custom_request_class(ep, json_request):
     assert resp == {'id': 0, 'jsonrpc': '2.0', 'result': 'probe'}
 
 
+def test_custom_request_class_null_id(ep, json_request):
+    resp = json_request({
+        'id': None,
+        'jsonrpc': '2.0',
+        'method': 'probe',
+        'params': {},
+        'extra_value': 'test',
+    })
+    assert resp == {'id': None, 'jsonrpc': '2.0', 'result': 'probe'}
+
+
 def test_custom_request_class_unexpected_type(ep, json_request):
     resp = json_request({
         'id': 0,

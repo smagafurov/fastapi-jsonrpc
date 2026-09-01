@@ -21,6 +21,9 @@ uv run --frozen python -m pytest
 uv run --frozen python -m pytest tests/test_jsonrpc.py
 uv run --frozen python -m pytest tests/test_jsonrpc.py::test_name -x
 
+# Type-check the shipped package (tests are intentionally outside this gate)
+uv run --frozen python -m mypy
+
 # Docs (optional group)
 uv sync --group docs
 uv run zensical serve    # live preview
@@ -32,9 +35,9 @@ uv lock
 
 Use `--no-sync` instead of `--frozen` when you deliberately upgraded a package with `uv pip install --upgrade ...` and do not want `uv run` to revert it (mirrors what the "latest fastapi/pydantic" CI matrix does).
 
-There is no configured linter or formatter in `pyproject.toml`; CI runs only `pytest`. Two workflows do it: `tests.yml` across Python 3.10–3.14 on the locked dependencies, and `tests-latest-fastapi-pydantic.yml` across the same Python versions times latest/locked fastapi and pydantic — on every pull request and weekly by cron. The second one is how an upstream release that breaks us gets noticed without any change on our side, so a red run there is a real signal, not noise.
+There is no configured linter or formatter in `pyproject.toml`. CI runs `pytest` in two workflows: `tests.yml` across Python 3.10–3.14 on the locked dependencies, and `tests-latest-fastapi-pydantic.yml` across the same Python versions times latest/locked fastapi and pydantic — on every pull request and weekly by cron. The second one is how an upstream release that breaks us gets noticed without any change on our side, so a red run there is a real signal, not noise.
 
-`mypy` is the ad-hoc type checker used when validating changes.
+`tests.yml` also runs mypy once on Python 3.14 with locked dependencies. Its scope is the shipped `fastapi_jsonrpc` package from `[tool.mypy]`; tests are intentionally outside the type-check gate.
 
 ## Architecture
 
