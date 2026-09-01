@@ -1547,6 +1547,8 @@ def _copy_openrpc_server(server: object, index: int) -> Dict[str, Any]:
         copied['name'] = url
     elif not isinstance(name, str):
         raise TypeError(f"{location} 'name' must be a string")
+    elif not name.strip():
+        raise ValueError(f"{location} 'name' must be a non-empty string")
 
     for field_name in ('summary', 'description'):
         if field_name in copied and not isinstance(copied[field_name], str):

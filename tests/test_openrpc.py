@@ -443,6 +443,7 @@ def test_method_server_url_composition(base_url, expected):
         ({'url': 123}, TypeError, "server 0.*url"),
         ({'url': '   '}, ValueError, "server 0.*url"),
         ({'url': 'https://example.test', 'name': 123}, TypeError, "server 0.*name"),
+        ({'url': 'https://example.test', 'name': '   '}, ValueError, "server 0.*name"),
         ({'url': 'https://example.test', 'unknown': True}, ValueError, "server 0.*unknown"),
         ({'url': 'https://example.test', 'variables': []}, TypeError, "server 0.*variables"),
         ({
