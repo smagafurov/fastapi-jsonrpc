@@ -526,6 +526,21 @@ def insert_dependencies(target: Dependant, dependencies: Optional[Sequence[Depen
         )
 
 
+def check_route_options(kwargs: Dict[str, Any]):
+    """Reject route options the JSON-RPC envelope owns.
+
+    Left to fastapi they surface as a bare "got multiple values for keyword argument",
+    which names APIRoute and sends the reader looking for the mistake in their own call.
+    """
+    owned = {
+        'methods': 'JSON-RPC is served over POST only',
+        'response_model': 'the response model is the generated JSON-RPC envelope',
+    }
+    for name, reason in owned.items():
+        if name in kwargs:
+            raise TypeError(f"JSON-RPC route fixes '{name}': {reason}")
+
+
 def check_shared_dependencies(path: str, dependencies: Optional[Sequence[Depends]] = None):
     """Reject entrypoint-wide dependencies that ask for params of a single JSON-RPC request.
 
@@ -789,6 +804,8 @@ class MethodRoute(APIRoute):
         middlewares: Optional[Sequence[JsonRpcMiddleware]] = None,
         **kwargs,
     ):
+        check_route_options(kwargs)
+
         name = name or func.__name__
         result_model = result_model or func.__annotations__.get('return')
 
@@ -1053,6 +1070,8 @@ class EntrypointRoute(APIRoute):
         request_class: Type[JsonRpcRequest] = JsonRpcRequest,
         **kwargs,
     ):
+        check_route_options(kwargs)
+
         name = name or 'entrypoint'
 
         _, path_format, _ = compile_path(path)
