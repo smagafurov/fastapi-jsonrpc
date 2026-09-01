@@ -606,6 +606,15 @@ def _example_deprecation_warnings(record):
     return [w for w in record if '`example` has been deprecated' in str(w.message)]
 
 
+@pytest.mark.parametrize(
+    ('kwarg', 'value'),
+    [('alias', 'custom'), ('embed', True)],
+)
+def test_protocol_owned_body_option_rejected(kwarg, value):
+    with pytest.raises(TypeError, match=f"Params fixes '{kwarg}'"):
+        Params(..., **{kwarg: value})
+
+
 def test_params_without_example_does_not_warn():
     with warnings.catch_warnings(record=True) as record:
         warnings.simplefilter('always')
