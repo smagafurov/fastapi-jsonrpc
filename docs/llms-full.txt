@@ -596,8 +596,8 @@ sentry_sdk.init(
 
 - JSON-RPC method name becomes the Sentry transaction name (not the HTTP path).
 - Each method in a batch is a span inside one transaction.
-- Requires `sentry-sdk >=2.0`.
-- Implicit auto-attach (sentry-sdk 1.x style) is deprecated and will be removed.
+- Requires `sentry-sdk >=2.0`. On sentry-sdk 1.x the integration is off and a warning is issued on import.
+- Implicit auto-attach is deprecated and will be removed. It engages only when Sentry is initialized.
 
 ## Wire Protocol
 
