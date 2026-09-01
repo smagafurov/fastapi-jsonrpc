@@ -47,12 +47,6 @@ except ImportError:
     sentry_sdk = None  # type: ignore
     sentry_transaction_from_function = None  # type: ignore
 
-try:
-    from fastapi._compat import _normalize_errors  # noqa
-except ImportError:
-    def _normalize_errors(errors: Sequence[Any]) -> Sequence[Any]:  # type: ignore
-        return errors
-
 if sentry_sdk is not None and not hasattr(sentry_sdk, 'new_scope'):
     # `new_scope` marks sentry-sdk 2.x; 1.x built everything on the Hub, which 2.x deprecated
     warnings.warn(
@@ -96,6 +90,15 @@ class Params(fastapi.params.Body):
         examples: Optional[List[Any]] = None,
         **extra: Any,
     ):
+        # JSON-RPC puts every method argument inside one `params` member, so these two
+        # are the protocol's to set. Left to fastapi they surface as a bare
+        # "got multiple values for keyword argument", which names Body and not json-rpc.
+        for owned in ('alias', 'embed'):
+            if owned in extra:
+                raise TypeError(
+                    f"Params fixes '{owned}': the whole JSON-RPC 'params' member is the body"
+                )
+
         # fastapi.params.Body warns whenever `example` is not its own `_Unset` sentinel,
         # so only forward it when the caller actually supplied one.
         if example is not Undefined:
@@ -979,7 +982,7 @@ class MethodRoute(APIRoute):
 
         if solved_dependency.errors:
             raise invalid_params_from_validation_error(
-                RequestValidationError(_normalize_errors(solved_dependency.errors))
+                RequestValidationError(solved_dependency.errors)
             )
 
         # We MUST NOT return response for Notification
@@ -1136,7 +1139,7 @@ class EntrypointRoute(APIRoute):
             )
             if solved_dependency.errors:
                 raise invalid_params_from_validation_error(
-                    RequestValidationError(_normalize_errors(solved_dependency.errors))
+                    RequestValidationError(solved_dependency.errors)
                 )
         return dependency_cache
 
