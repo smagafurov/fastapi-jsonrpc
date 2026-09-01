@@ -14,7 +14,7 @@ app = jsonrpc.API(
 
 - `openrpc_url: str | None` — URL for the generated OpenRPC schema. Default: `/openrpc.json`. Pass `None` to turn it off.
 - `fastapi_jsonrpc_components_fine_names: bool` — controls the naming strategy for generated Pydantic components in the OpenAPI schema. Default: `True`. Set to `False` if the default names collide with your own schemas. See `tests/test_openapi.py` for exact behaviour.
-- Everything else is forwarded to `FastAPI`.
+- Everything else is forwarded to `FastAPI`. Among those, `servers`, `root_path` and `root_path_in_servers` also shape the OpenRPC document: they produce its root `servers`, and each method's `servers` is that same list with the entrypoint path appended to every URL. There is no OpenRPC-specific server parameter. See [OpenAPI & OpenRPC](../usage/openapi.md#which-endpoint-serves-a-method).
 
 ## Binding entrypoints
 
