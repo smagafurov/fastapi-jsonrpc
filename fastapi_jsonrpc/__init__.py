@@ -53,28 +53,28 @@ except ImportError:
     def _normalize_errors(errors: Sequence[Any]) -> Sequence[Any]:  # type: ignore
         return errors
 
-if hasattr(sentry_sdk, 'new_scope'):
-    # sentry_sdk 2.x
-    sentry_new_scope = sentry_sdk.new_scope
-    sentry_is_initialized = sentry_sdk.is_initialized
+if sentry_sdk is not None and not hasattr(sentry_sdk, 'new_scope'):
+    # `new_scope` marks sentry-sdk 2.x; 1.x built everything on the Hub, which 2.x deprecated
+    warnings.warn(
+        f"Sentry integration needs sentry-sdk 2.*, got {sentry_sdk.VERSION}. "
+        f"Sentry integration is turned off."
+    )
+    sentry_sdk = None  # type: ignore
+    sentry_transaction_from_function = None  # type: ignore
 
-    def get_sentry_integration():
-        return sentry_sdk.get_client().get_integration(
-            "FastApiJsonRPCIntegration"
-        )
-else:
-    # sentry_sdk 1.x
-    @contextmanager
-    def sentry_new_scope():
-        hub = sentry_sdk.Hub.current
-        with sentry_sdk.Hub(hub) as hub:
-            with hub.configure_scope() as scope:
-                yield scope
 
-    def sentry_is_initialized():
-        return sentry_sdk.Hub.current.client is not None
+def sentry_new_scope():
+    return sentry_sdk.new_scope()
 
-    get_sentry_integration = lambda : None
+
+def sentry_is_initialized():
+    return sentry_sdk.is_initialized()
+
+
+def get_sentry_integration():
+    return sentry_sdk.get_client().get_integration(
+        "FastApiJsonRPCIntegration"
+    )
 
 
 class Params(fastapi.params.Body):
