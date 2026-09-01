@@ -33,10 +33,17 @@ dev = [
     "sentry-sdk>=2.12",
     "requests",
     "httpx>=0.27.0,<0.29.0",  # FastAPI/Starlette extra test deps
+    "commitizen>=4,<5",
 ]
 docs = [
     "zensical",
 ]
+
+[tool.commitizen]  # https://commitizen-tools.github.io/commitizen/config/
+bump_message = "bump(release): v$current_version → v$new_version"
+tag_format = "v$version"
+update_changelog_on_bump = true
+version_provider = "pep621"
 
 [tool.pytest.ini_options]
 # Without this pytest walks the package too and tries to collect
