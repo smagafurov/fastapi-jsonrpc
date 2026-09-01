@@ -6,7 +6,7 @@
 - For batch requests, the whole batch is a **single transaction** and each method call is a **span** inside it.
 - Available as `fastapi_jsonrpc.contrib.sentry.FastApiJsonRPCIntegration`.
 
-Requires `sentry-sdk >=2.0`. On sentry-sdk 1.x the integration stays off and the library says so once, when it is imported.
+Install it as `pip install 'fastapi-jsonrpc[sentry]'`. Only sentry-sdk 2.x is supported: on 1.x importing `fastapi_jsonrpc.contrib.sentry` raises, and importing `fastapi_jsonrpc` warns once and leaves the deprecated implicit integration off.
 
 ## Setup
 

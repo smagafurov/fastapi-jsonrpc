@@ -1,4 +1,4 @@
-import importlib.util
+import importlib.metadata
 import logging
 import platform
 import sys
@@ -169,6 +169,11 @@ def openapi_compatible():
 collect_ignore = []
 if sys.version_info < (3, 12):
     collect_ignore.append("test_openrpc_type_keyword.py")
-if importlib.util.find_spec("sentry_sdk") is None:
-    # sentry-sdk is an optional integration, its tests can't run without it
+try:
+    _sentry_sdk_version = importlib.metadata.version("sentry_sdk")
+except importlib.metadata.PackageNotFoundError:
+    _sentry_sdk_version = None
+if _sentry_sdk_version is None or not _sentry_sdk_version.startswith("2."):
+    # sentry-sdk 2.x is the only branch the library supports, and importing
+    # fastapi_jsonrpc.contrib.sentry on anything else raises by design
     collect_ignore.append("sentry")

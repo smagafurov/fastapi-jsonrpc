@@ -250,6 +250,11 @@ dependencies = [
     { name = "starlette" },
 ]
 
+[package.optional-dependencies]
+sentry = [
+    { name = "sentry-sdk" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "httpx" },
@@ -267,8 +272,10 @@ requires-dist = [
     { name = "aiojobs", specifier = ">=1.1.0" },
     { name = "fastapi", specifier = ">=0.135.2" },
     { name = "pydantic", specifier = ">=2.7.0,<3.0.0" },
+    { name = "sentry-sdk", marker = "extra == 'sentry'", specifier = ">=2.0" },
     { name = "starlette", specifier = ">=1.0" },
 ]
+provides-extras = ["sentry"]
 
 [package.metadata.requires-dev]
 dev = [
