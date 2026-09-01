@@ -16,6 +16,9 @@ dependencies = [
     "starlette>=1.0",
 ]
 
+[project.optional-dependencies]
+sentry = ["sentry-sdk>=2.0"]
+
 [project.urls]
 Homepage = "https://github.com/smagafurov/fastapi-jsonrpc"
 Repository = "https://github.com/smagafurov/fastapi-jsonrpc"

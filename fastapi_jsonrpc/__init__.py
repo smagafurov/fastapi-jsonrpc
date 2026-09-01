@@ -56,8 +56,8 @@ except ImportError:
 if sentry_sdk is not None and not hasattr(sentry_sdk, 'new_scope'):
     # `new_scope` marks sentry-sdk 2.x; 1.x built everything on the Hub, which 2.x deprecated
     warnings.warn(
-        f"Sentry integration needs sentry-sdk 2.*, got {sentry_sdk.VERSION}. "
-        f"Sentry integration is turned off."
+        f"fastapi-jsonrpc supports only sentry-sdk 2.*, got {sentry_sdk.VERSION}: "
+        f"the Sentry integration is turned off. Upgrade sentry-sdk to use it."
     )
     sentry_sdk = None  # type: ignore
     sentry_transaction_from_function = None  # type: ignore
