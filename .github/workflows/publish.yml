@@ -1,0 +1,34 @@
+name: publish
+
+on:
+  release:
+    # Not `created`: a release published from a draft — which is what the web UI
+    # produces by default — never fires that type, and the failure is silent.
+    types: [published]
+
+jobs:
+  publish:
+    name: Publish to PyPI
+
+    runs-on: ubuntu-latest
+    environment: pypi
+
+    # Trusted publishing: PyPI authenticates this workflow by its OIDC identity,
+    # so no API token exists to leak or rotate.
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Checkout changes
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.14'
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Publish to PyPI
+        run: uv publish
