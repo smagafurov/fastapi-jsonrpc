@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `fastapi-jsonrpc` — JSON-RPC 2.0 server on top of FastAPI. Methods are written like FastAPI endpoints and OpenAPI / Swagger UI / OpenRPC are generated automatically. Supports batch requests, notifications, typed errors with Pydantic `DataModel`, async context-manager middlewares, and a Sentry integration.
 
-Python `>=3.10`, FastAPI `>=0.135`, Pydantic `>=2.7,<3`, Starlette `>=1.0`. Dependency management via **uv** (PEP 621 `[project]` + PEP 735 `[dependency-groups]`, build backend `hatchling`).
+Python `>=3.10`, FastAPI `>=0.135.2`, Pydantic `>=2.7,<3`, Starlette `>=1.0`. Dependency management via **uv** (PEP 621 `[project]` + PEP 735 `[dependency-groups]`, build backend `hatchling`).
 
 ## Commands
 
@@ -32,7 +32,9 @@ uv lock
 
 Use `--no-sync` instead of `--frozen` when you deliberately upgraded a package with `uv pip install --upgrade ...` and do not want `uv run` to revert it (mirrors what the "latest fastapi/pydantic" CI matrix does).
 
-There is no configured linter or formatter in `pyproject.toml`; CI runs only `pytest` across Python 3.10–3.14 (`.github/workflows/tests.yml`). `mypy` is the ad-hoc type checker used when validating changes.
+There is no configured linter or formatter in `pyproject.toml`; CI runs only `pytest`. Two workflows do it: `tests.yml` across Python 3.10–3.14 on the locked dependencies, and `tests-latest-fastapi-pydantic.yml` across the same Python versions times latest/locked fastapi and pydantic — on every pull request and weekly by cron. The second one is how an upstream release that breaks us gets noticed without any change on our side, so a red run there is a real signal, not noise.
+
+`mypy` is the ad-hoc type checker used when validating changes.
 
 ## Architecture
 
