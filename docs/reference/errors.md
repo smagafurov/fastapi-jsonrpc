@@ -14,7 +14,7 @@ class NotEnoughMoney(jsonrpc.BaseError):
 
 ## Class attributes
 
-- **`CODE: int`** — JSON-RPC error code. Required.
+- **`CODE: int`** — JSON-RPC error code. Required: an error class declared in `@entrypoint.method(errors=[...])` without one raises when the OpenRPC schema is generated, since nothing could reference it.
 - **`MESSAGE: str`** — human-readable message. Required.
 - **`DataModel: type[BaseModel] | None`** — optional Pydantic model for the `error.data` payload. When set, the value passed to `raise MyError(data=...)` is validated against it.
 - **`ErrorModel: type[BaseModel] | None`** — optional model for entries inside `error.data.errors` (used by `InvalidRequest` and `InvalidParams` to describe individual validation issues).

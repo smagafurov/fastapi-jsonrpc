@@ -309,6 +309,36 @@ def test_errors_merging(ep, app, app_client):
     }
 
 
+def test_error_without_code_fails_fast(ep, app):
+    class ForgotCode(jsonrpc.BaseError):
+        MESSAGE = 'No code was declared'
+
+    @ep.method(errors=[ForgotCode])
+    def my_method__with_codeless_error() -> None:
+        return None
+
+    app.bind_entrypoint(ep)
+
+    with pytest.raises(RuntimeError, match="ForgotCode.*my_method__with_codeless_error.*CODE"):
+        app.get_openrpc()
+
+
+def test_model_return_type_is_referenced(ep, app):
+    class Wrapped(BaseModel):
+        x: int
+
+    @ep.method()
+    def my_method__returning_model() -> Wrapped:
+        return Wrapped(x=1)
+
+    app.bind_entrypoint(ep)
+
+    assert app.get_openrpc()['methods'][0]['result'] == {
+        'name': 'my_method__returning_model_Result',
+        'schema': {'$ref': '#/components/schemas/Wrapped'},
+    }
+
+
 def test_type_hints(ep, app, app_client):
     Input = List[str]
     Output = Dict[str, List[List[float]]]

@@ -877,7 +877,9 @@ class MethodRoute(APIRoute):
         self.app = request_response(self.handle_http_request)
         self.request_class = request_class
         self.result_model = result_model
-        self.params_model = _Request.model_fields['params'].annotation
+        params_model = _Request.model_fields['params'].annotation
+        assert params_model is not None, f"method {name!r} has no params annotation"
+        self.params_model: Type[Any] = params_model
         self.errors = errors or []
 
     def __hash__(self):
@@ -1761,7 +1763,7 @@ class API(FastAPI):
     def get_openrpc(self):
         return self._get_openrpc(self.root_path)
 
-    def _get_openrpc(self, root_path):
+    def _get_openrpc(self, root_path: str) -> Dict[str, Any]:
         root_servers = self._get_openrpc_root_servers(root_path)
         methods_spec = []
         methods_by_name: Dict[str, Tuple[Dict[str, Any], Dict[str, Any], str]] = {}
@@ -1775,14 +1777,18 @@ class API(FastAPI):
 
             params_schema = route.params_model.model_json_schema(ref_template=ref_template)
 
-            if isinstance(route.result_model, BaseModel):
-                result_schema = route.result_model.model_json_schema(ref_template=ref_template)
-            else:
-                result_model = create_model(f'{route.name}_Result', result=(route.result_model or Any, ...))
-                result_schema = result_model.model_json_schema(ref_template=ref_template)
+            result_model = create_model(f'{route.name}_Result', result=(route.result_model or Any, ...))
+            result_schema = result_model.model_json_schema(ref_template=ref_template)
 
+            error_codes = set()
             for error in route.errors:
+                if error.CODE is None:
+                    raise RuntimeError(
+                        f'{error.__name__} is declared on method {route.name!r} but has no CODE, '
+                        f'so nothing can reference it in the schema'
+                    )
                 errors_by_code[error.CODE].add(error)
+                error_codes.add(error.CODE)
 
             entrypoint_path = route.entrypoint.entrypoint_route.path
             if root_servers:
@@ -1794,7 +1800,7 @@ class API(FastAPI):
             else:
                 method_servers = [{'name': entrypoint_path, 'url': entrypoint_path}]
 
-            method_spec = {
+            method_spec: Dict[str, Any] = {
                 'name': route.name,
                 'params': [
                     {
@@ -1818,7 +1824,7 @@ class API(FastAPI):
                     {
                         '$ref': f'#/components/errors/{code}',
                     }
-                    for code in sorted({error.CODE for error in route.errors})
+                    for code in sorted(error_codes)
                 ],
             }
             if route.summary:
