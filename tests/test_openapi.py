@@ -8,6 +8,35 @@ from fastapi import Body
 from typing import List
 
 
+def test_jsonrpc_id_allows_null(ep_path):
+    ep = jsonrpc.Entrypoint(ep_path)
+
+    @ep.method()
+    def null_id_probe(value: int = Body(...)) -> int:
+        return value
+
+    app = jsonrpc.API()
+    app.bind_entrypoint(ep)
+    with TestClient(app) as client:
+        schemas = client.get('/openapi.json').json()['components']['schemas']
+
+    envelope_models = [
+        '_Request',
+        '_Response',
+        '_Request[null_id_probe]',
+        '_Response[null_id_probe]',
+        '_ErrorResponse[InvalidRequest]',
+    ]
+    for model in envelope_models:
+        assert {'type': 'null'} in schemas[model]['properties']['id']['anyOf']
+
+    assert 'id' not in schemas['_Request'].get('required', [])
+    assert 'id' not in schemas['_Request[null_id_probe]'].get('required', [])
+    assert 'id' in schemas['_ErrorResponse[InvalidRequest]']['required']
+    assert 'id' in schemas['_Response']['required']
+    assert 'id' in schemas['_Response[null_id_probe]']['required']
+
+
 def test_basic(ep, app, app_client, openapi_compatible):
     # noinspection PyUnusedLocal
     @ep.method()
@@ -176,6 +205,9 @@ def test_basic(ep, app, app_client, openapi_compatible):
                                 {
                                     'type': 'integer',
                                 },
+                                {
+                                    'type': 'null',
+                                },
                             ],
                             'example': 0,
                             'title': 'Id',
@@ -188,7 +220,7 @@ def test_basic(ep, app, app_client, openapi_compatible):
                             'type': 'string',
                         },
                     },
-                    'required': ['error'],
+                    'required': ['id', 'error'],
                     'title': '_ErrorResponse[InternalError]',
                     'type': 'object',
                 },
@@ -206,6 +238,9 @@ def test_basic(ep, app, app_client, openapi_compatible):
                                 {
                                     'type': 'integer',
                                 },
+                                {
+                                    'type': 'null',
+                                },
                             ],
                             'example': 0,
                             'title': 'Id',
@@ -218,7 +253,7 @@ def test_basic(ep, app, app_client, openapi_compatible):
                             'type': 'string',
                         },
                     },
-                    'required': ['error'],
+                    'required': ['id', 'error'],
                     'title': '_ErrorResponse[InvalidParams]',
                     'type': 'object',
                 },
@@ -236,6 +271,9 @@ def test_basic(ep, app, app_client, openapi_compatible):
                                 {
                                     'type': 'integer',
                                 },
+                                {
+                                    'type': 'null',
+                                },
                             ],
                             'example': 0,
                             'title': 'Id',
@@ -248,7 +286,7 @@ def test_basic(ep, app, app_client, openapi_compatible):
                             'type': 'string',
                         },
                     },
-                    'required': ['error'],
+                    'required': ['id', 'error'],
                     'title': '_ErrorResponse[InvalidRequest]',
                     'type': 'object',
                 },
@@ -266,6 +304,9 @@ def test_basic(ep, app, app_client, openapi_compatible):
                                 {
                                     'type': 'integer',
                                 },
+                                {
+                                    'type': 'null',
+                                },
                             ],
                             'example': 0,
                             'title': 'Id',
@@ -278,7 +319,7 @@ def test_basic(ep, app, app_client, openapi_compatible):
                             'type': 'string',
                         },
                     },
-                    'required': ['error'],
+                    'required': ['id', 'error'],
                     'title': '_ErrorResponse[MethodNotFound]',
                     'type': 'object',
                 },
@@ -296,6 +337,9 @@ def test_basic(ep, app, app_client, openapi_compatible):
                                 {
                                     'type': 'integer',
                                 },
+                                {
+                                    'type': 'null',
+                                },
                             ],
                             'example': 0,
                             'title': 'Id',
@@ -308,7 +352,7 @@ def test_basic(ep, app, app_client, openapi_compatible):
                             'type': 'string',
                         },
                     },
-                    'required': ['error'],
+                    'required': ['id', 'error'],
                     'title': '_ErrorResponse[ParseError]',
                     'type': 'object',
                 },
@@ -343,6 +387,9 @@ def test_basic(ep, app, app_client, openapi_compatible):
                                 },
                                 {
                                     'type': 'integer',
+                                },
+                                {
+                                    'type': 'null',
                                 },
                             ],
                             'example': 0,
@@ -380,6 +427,9 @@ def test_basic(ep, app, app_client, openapi_compatible):
                                 {
                                     'type': 'integer',
                                 },
+                                {
+                                    'type': 'null',
+                                },
                             ],
                             'example': 0,
                             'title': 'Id',
@@ -416,6 +466,9 @@ def test_basic(ep, app, app_client, openapi_compatible):
                                 {
                                     'type': 'integer',
                                 },
+                                {
+                                    'type': 'null',
+                                },
                             ],
                             'example': 0,
                             'title': 'Id',
@@ -447,6 +500,9 @@ def test_basic(ep, app, app_client, openapi_compatible):
                                 },
                                 {
                                     'type': 'integer',
+                                },
+                                {
+                                    'type': 'null',
                                 },
                             ],
                             'example': 0,

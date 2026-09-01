@@ -208,6 +208,9 @@ def test_basic(app_client, openapi_compatible):
                                 {
                                     'type': 'integer',
                                 },
+                                {
+                                    'type': 'null',
+                                },
                             ],
                             'example': 0,
                             'title': 'Id',
@@ -220,7 +223,7 @@ def test_basic(app_client, openapi_compatible):
                             'type': 'string',
                         },
                     },
-                    'required': ['error'],
+                    'required': ['id', 'error'],
                     'title': '_ErrorResponse[InternalError]',
                     'type': 'object',
                 },
@@ -238,6 +241,9 @@ def test_basic(app_client, openapi_compatible):
                                 {
                                     'type': 'integer',
                                 },
+                                {
+                                    'type': 'null',
+                                },
                             ],
                             'example': 0,
                             'title': 'Id',
@@ -250,7 +256,7 @@ def test_basic(app_client, openapi_compatible):
                             'type': 'string',
                         },
                     },
-                    'required': ['error'],
+                    'required': ['id', 'error'],
                     'title': '_ErrorResponse[InvalidParams]',
                     'type': 'object',
                 },
@@ -268,6 +274,9 @@ def test_basic(app_client, openapi_compatible):
                                 {
                                     'type': 'integer',
                                 },
+                                {
+                                    'type': 'null',
+                                },
                             ],
                             'example': 0,
                             'title': 'Id',
@@ -280,7 +289,7 @@ def test_basic(app_client, openapi_compatible):
                             'type': 'string',
                         },
                     },
-                    'required': ['error'],
+                    'required': ['id', 'error'],
                     'title': '_ErrorResponse[InvalidRequest]',
                     'type': 'object',
                 },
@@ -298,6 +307,9 @@ def test_basic(app_client, openapi_compatible):
                                 {
                                     'type': 'integer',
                                 },
+                                {
+                                    'type': 'null',
+                                },
                             ],
                             'example': 0,
                             'title': 'Id',
@@ -310,7 +322,7 @@ def test_basic(app_client, openapi_compatible):
                             'type': 'string',
                         },
                     },
-                    'required': ['error'],
+                    'required': ['id', 'error'],
                     'title': '_ErrorResponse[MethodNotFound]',
                     'type': 'object',
                 },
@@ -328,6 +340,9 @@ def test_basic(app_client, openapi_compatible):
                                 {
                                     'type': 'integer',
                                 },
+                                {
+                                    'type': 'null',
+                                },
                             ],
                             'example': 0,
                             'title': 'Id',
@@ -340,7 +355,7 @@ def test_basic(app_client, openapi_compatible):
                             'type': 'string',
                         },
                     },
-                    'required': ['error'],
+                    'required': ['id', 'error'],
                     'title': '_ErrorResponse[ParseError]',
                     'type': 'object',
                 },
@@ -393,7 +408,7 @@ def test_basic(app_client, openapi_compatible):
                     'additionalProperties': False,
                     'properties': {
                         'id': {
-                            'anyOf': [{'type': 'string'}, {'type': 'integer'}],
+                            'anyOf': [{'type': 'string'}, {'type': 'integer'}, {'type': 'null'}],
                             'example': 0,
                             'title': 'Id',
                         },
@@ -420,7 +435,7 @@ def test_basic(app_client, openapi_compatible):
                     'additionalProperties': False,
                     'properties': {
                         'id': {
-                            'anyOf': [{'type': 'string'}, {'type': 'integer'}],
+                            'anyOf': [{'type': 'string'}, {'type': 'integer'}, {'type': 'null'}],
                             'example': 0,
                             'title': 'Id',
                         },
@@ -453,6 +468,9 @@ def test_basic(app_client, openapi_compatible):
                                 },
                                 {
                                     'type': 'integer',
+                                },
+                                {
+                                    'type': 'null',
                                 },
                             ],
                             'example': 0,
@@ -490,6 +508,9 @@ def test_basic(app_client, openapi_compatible):
                                 {
                                     'type': 'integer',
                                 },
+                                {
+                                    'type': 'null',
+                                },
                             ],
                             'example': 0,
                             'title': 'Id',
@@ -515,7 +536,7 @@ def test_basic(app_client, openapi_compatible):
                     'additionalProperties': False,
                     'properties': {
                         'id': {
-                            'anyOf': [{'type': 'string'}, {'type': 'integer'}],
+                            'anyOf': [{'type': 'string'}, {'type': 'integer'}, {'type': 'null'}],
                             'example': 0,
                             'title': 'Id',
                         },
@@ -545,6 +566,9 @@ def test_basic(app_client, openapi_compatible):
                                 },
                                 {
                                     'type': 'integer',
+                                },
+                                {
+                                    'type': 'null',
                                 },
                             ],
                             'example': 0,

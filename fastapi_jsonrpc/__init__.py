@@ -5,11 +5,9 @@ import inspect
 import logging
 import typing
 from collections import ChainMap, defaultdict
-from collections.abc import Coroutine
 from contextlib import AsyncExitStack, AbstractAsyncContextManager, asynccontextmanager, contextmanager
 from functools import cached_property
-from types import FunctionType
-from typing import List, Tuple, Union, Any, Callable, Type, Optional, Dict, Sequence, Literal
+from typing import List, Tuple, Union, Any, Callable, Type, Optional, Dict, Sequence, Literal, TypeVar, Protocol
 
 import pydantic
 from fastapi.dependencies.utils import _should_embed_body_fields  # noqa
@@ -25,6 +23,7 @@ from fastapi.dependencies.utils import solve_dependencies, get_dependant, \
     get_parameterless_sub_dependant
 from fastapi.exceptions import RequestValidationError, HTTPException
 from fastapi.routing import APIRoute, APIRouter, request_response, serialize_response
+from fastapi.types import DependencyCacheKey
 from pydantic import BaseModel, ValidationError, StrictStr, Field, create_model, ConfigDict
 from starlette.background import BackgroundTasks
 from starlette.concurrency import run_in_threadpool
@@ -39,13 +38,26 @@ import warnings
 
 logger = logging.getLogger(__name__)
 
+_JsonRpcId = Optional[Union[StrictStr, int]]
+
+
+class _MethodCallable(Protocol):
+    __name__: str
+    __module__: str
+    __annotations__: Dict[str, Any]
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
+
+
+_CallableT = TypeVar('_CallableT', bound=_MethodCallable)
+
 try:
     import sentry_sdk
     import sentry_sdk.tracing
     from sentry_sdk.utils import transaction_from_function as sentry_transaction_from_function
 except ImportError:
-    sentry_sdk = None  # type: ignore
-    sentry_transaction_from_function = None  # type: ignore
+    sentry_sdk = None  # type: ignore[assignment]
+    sentry_transaction_from_function = None  # type: ignore[assignment]
 
 if sentry_sdk is not None and not hasattr(sentry_sdk, 'new_scope'):
     # `new_scope` marks sentry-sdk 2.x; 1.x built everything on the Hub, which 2.x deprecated
@@ -53,8 +65,8 @@ if sentry_sdk is not None and not hasattr(sentry_sdk, 'new_scope'):
         f"fastapi-jsonrpc supports only sentry-sdk 2.*, got {sentry_sdk.VERSION}: "
         f"the Sentry integration is turned off. Upgrade sentry-sdk to use it."
     )
-    sentry_sdk = None  # type: ignore
-    sentry_transaction_from_function = None  # type: ignore
+    sentry_sdk = None  # type: ignore[assignment]
+    sentry_transaction_from_function = None  # type: ignore[assignment]
 
 
 def sentry_new_scope():
@@ -71,7 +83,8 @@ def get_sentry_integration():
     )
 
 
-class Params(fastapi.params.Body):
+# FastAPI exposes Body as extensible, while Pydantic marks its FieldInfo base final.
+class Params(fastapi.params.Body):  # type: ignore[misc]
     def __init__(
         self,
         default: Any,
@@ -329,14 +342,14 @@ class BaseError(Exception):
 
     @classmethod
     def build_resp_model(cls) -> Type[BaseModel]:
-        fields_definition = {
+        fields_definition: Dict[str, Tuple[Any, Any]] = {
             'code': (int, Field(cls.CODE, frozen=True, json_schema_extra={'example': cls.CODE})),
             'message': (str, Field(cls.MESSAGE, frozen=True, json_schema_extra={'example': cls.MESSAGE})),
         }
 
         data_model = cls.get_data_model()
         if data_model is not None:
-            data_model_default_value = ...
+            data_model_default_value: Any = ...
             if not cls.data_required:
                 data_model = Optional[data_model]
                 data_model_default_value = None
@@ -345,7 +358,7 @@ class BaseError(Exception):
 
         name = cls._component_name or cls.__name__
 
-        _JsonRpcErrorModel = create_model(
+        _JsonRpcErrorModel = create_model(  # type: ignore[call-overload]
             name,
             __base__=(BaseModel,),
             __module__=cls.__module__,
@@ -356,8 +369,8 @@ class BaseError(Exception):
         @component_name(f'_ErrorResponse[{name}]', cls.__module__)
         class _ErrorResponseModel(BaseModel):
             jsonrpc: Literal['2.0'] = Field('2.0', json_schema_extra={'example': '2.0'})
-            id: Union[StrictStr, int] = Field(None, json_schema_extra={'example': 0})
-            error: _JsonRpcErrorModel
+            id: _JsonRpcId = Field(..., json_schema_extra={'example': 0})
+            error: _JsonRpcErrorModel  # type: ignore[valid-type]
 
             model_config = ConfigDict(extra='forbid')
 
@@ -434,7 +447,7 @@ def errors_responses(errors: Optional[Sequence[Type[BaseError]]] = None)->Dict[A
 @component_name(f'_Request')
 class JsonRpcRequest(BaseModel):
     jsonrpc: Literal['2.0'] = Field('2.0', json_schema_extra={'example': '2.0'})
-    id: Union[StrictStr, int] = Field(None, json_schema_extra={'example': 0})
+    id: _JsonRpcId = Field(None, json_schema_extra={'example': 0})
     method: StrictStr
     params: dict = Field(default_factory=dict)
 
@@ -444,7 +457,7 @@ class JsonRpcRequest(BaseModel):
 @component_name(f'_Response')
 class JsonRpcResponse(BaseModel):
     jsonrpc: Literal['2.0'] = Field('2.0', json_schema_extra={'example': '2.0'})
-    id: Union[StrictStr, int] = Field(None, json_schema_extra={'example': 0})
+    id: _JsonRpcId = Field(None, json_schema_extra={'example': 0})
     result: dict
 
     model_config = ConfigDict(extra='forbid', json_schema_serialization_defaults_required=True)
@@ -509,7 +522,7 @@ def fix_query_dependencies(dependant: Dependant):
 
     for field in dependant.body_params:
         if not isinstance(field.field_info, Params):
-            field.field_info.embed = True
+            field.field_info.embed = True  # type: ignore[attr-defined]  # FastAPI sets this dynamically
 
     for sub_dependant in dependant.dependencies:
         fix_query_dependencies(sub_dependant)
@@ -567,7 +580,7 @@ def check_shared_dependencies(path: str, dependencies: Optional[Sequence[Depends
         )
 
 
-def make_request_model(name: str, module: str, body_params: List[ModelField]) -> Type[BaseModel]:
+def make_request_model(name: str, module: Optional[str], body_params: List[ModelField]) -> Type[BaseModel]:
     whole_params_list = [p for p in body_params if isinstance(p.field_info, Params)]
     if len(whole_params_list):
         if len(whole_params_list) > 1:
@@ -582,16 +595,18 @@ def make_request_model(name: str, module: str, body_params: List[ModelField]) ->
                 f"params={whole_params_list}, other={body_params_list}"
             )
 
+    params_annotation: Any
+    params_field_info: Any
     if whole_params_list:
         assert whole_params_list[0].alias == 'params'
         params_field = whole_params_list[0]
         params_annotation, params_field_info = params_field.field_info.annotation, params_field.field_info
     else:
-        fields = {
+        fields: Dict[str, Tuple[Any, Any]] = {
             param.name: (param.field_info.annotation, param.field_info)
             for param in body_params
         }
-        _JsonRpcRequestParams = create_model(
+        _JsonRpcRequestParams = create_model(  # type: ignore[call-overload]
             f'_Params[{name}]',
             __base__=(BaseModel,),
             __module__=module,
@@ -605,9 +620,9 @@ def make_request_model(name: str, module: str, body_params: List[ModelField]) ->
     _Request = create_model(
         f'_Request[{name}]',
         __config__=ConfigDict(extra='forbid'),
-        __module__=module,
+        __module__=module,  # type: ignore[arg-type]  # Pydantic accepts None at runtime
         jsonrpc=(Literal['2.0'], Field('2.0', json_schema_extra={'example': '2.0'})),
-        id=(Union[StrictStr, int], Field(None, json_schema_extra={'example': 0})),
+        id=(_JsonRpcId, Field(None, json_schema_extra={'example': 0})),
         method=(StrictStr, Field(name, frozen=True, json_schema_extra={'example': name})),
         params=(params_annotation, params_field_info)
     )
@@ -616,12 +631,12 @@ def make_request_model(name: str, module: str, body_params: List[ModelField]) ->
     return _Request
 
 
-def make_response_model(name: str, module: str, result_model: Type[BaseModel]) -> Type[BaseModel]:
+def make_response_model(name: str, module: Optional[str], result_model: Any) -> Type[BaseModel]:
     @component_name(f'_Response[{name}]', module)
     class _Response(BaseModel):
         jsonrpc: Literal['2.0'] = Field('2.0', json_schema_extra={'example': '2.0'})
-        id: Union[StrictStr, int] = Field(None, json_schema_extra={'example': 0})
-        result: result_model  # type: ignore[valid-type]
+        id: _JsonRpcId = Field(None, json_schema_extra={'example': 0})
+        result: result_model
 
         model_config = ConfigDict(extra='forbid', json_schema_serialization_defaults_required=True)
 
@@ -656,32 +671,35 @@ class JsonRpcContext:
         self,
         raw_response: Union[dict, Exception],
     ):
-        exception = None
+        exception: Optional[Exception] = None
+        response: Optional[dict]
         is_unhandled_exception = False
 
         if isinstance(raw_response, Exception):
             exception = raw_response
             if isinstance(exception, BaseError):
-                raw_response = exception.get_resp()
+                response = exception.get_resp()
             elif isinstance(exception, HTTPException):
-                raw_response = None
+                response = None
             else:
-                raw_response = InternalError().get_resp()
+                response = InternalError().get_resp()
                 is_unhandled_exception = True
+        else:
+            response = raw_response
 
-        if raw_response is not None:
-            raw_response.pop('id', None)
+        if response is not None:
+            response.pop('id', None)
             if isinstance(self.raw_request, dict) and 'id' in self.raw_request:
-                raw_response['id'] = self.raw_request.get('id')
-            elif 'error' in raw_response:
-                raw_response['id'] = None
+                response['id'] = self.raw_request.get('id')
+            elif 'error' in response:
+                response['id'] = None
 
-        self._raw_response = raw_response
+        self._raw_response = response
         self.exception = exception
         self.is_unhandled_exception = is_unhandled_exception
 
     @property
-    def raw_response(self) -> dict:
+    def raw_response(self) -> Optional[dict]:
         return self._raw_response
 
     @raw_response.setter
@@ -697,7 +715,8 @@ class JsonRpcContext:
 
     async def __aenter__(self):
         assert self.exit_stack is None
-        self.exit_stack = await AsyncExitStack().__aenter__()
+        exit_stack = await AsyncExitStack().__aenter__()
+        self.exit_stack = exit_stack
         if (
             sentry_sdk is not None
             # merely installed is not in use: without a client the scope work below is a no-op,
@@ -705,14 +724,15 @@ class JsonRpcContext:
             and sentry_is_initialized()
             and get_sentry_integration() is None
         ):
-            self.exit_stack.enter_context(self._enter_old_sentry_integration())
+            exit_stack.enter_context(self._enter_old_sentry_integration())
 
-        await self.exit_stack.enter_async_context(self._handle_exception(reraise=False))
+        await exit_stack.enter_async_context(self._handle_exception(reraise=False))
         self.jsonrpc_context_token = _jsonrpc_context.set(self)
         return self
 
     async def __aexit__(self, *exc_details):
         assert self.jsonrpc_context_token is not None
+        assert self.exit_stack is not None
         _jsonrpc_context.reset(self.jsonrpc_context_token)
         return await self.exit_stack.__aexit__(*exc_details)
 
@@ -763,6 +783,7 @@ class JsonRpcContext:
         return event_processor
 
     async def enter_middlewares(self, middlewares: Sequence['JsonRpcMiddleware']):
+        assert self.exit_stack is not None
         for mw in middlewares:
             cm = mw(self)
             if not isinstance(cm, AbstractAsyncContextManager):
@@ -773,7 +794,9 @@ class JsonRpcContext:
 
 JsonRpcMiddleware = Callable[[JsonRpcContext], AbstractAsyncContextManager]
 
-_jsonrpc_context = contextvars.ContextVar('_fastapi_jsonrpc__jsonrpc_context')
+_jsonrpc_context: contextvars.ContextVar[JsonRpcContext] = contextvars.ContextVar(
+    '_fastapi_jsonrpc__jsonrpc_context'
+)
 
 
 def get_jsonrpc_context() -> JsonRpcContext:
@@ -793,7 +816,7 @@ class MethodRoute(APIRoute):
         self,
         entrypoint: 'Entrypoint',
         path: str,
-        func: Union[FunctionType, Coroutine],
+        func: _MethodCallable,
         *,
         result_model: Optional[Type[Any]] = None,
         name: Optional[str] = None,
@@ -820,7 +843,7 @@ class MethodRoute(APIRoute):
         _Response = make_response_model(name, func.__module__, result_model)
 
         # Only needed to generate OpenAPI
-        async def endpoint(__request__: _Request):
+        async def endpoint(__request__: _Request):  # type: ignore[valid-type]
             del __request__
 
         endpoint.__name__ = func.__name__
@@ -875,16 +898,17 @@ class MethodRoute(APIRoute):
 
     async def handle_http_request(self, http_request: Request):
         background_tasks = BackgroundTasks()
+        response_class = typing.cast(Type[Response], self.response_class)
 
         sub_response = Response()
         del sub_response.headers["content-length"]
-        sub_response.status_code = None  # type: ignore
+        sub_response.status_code = None  # type: ignore[assignment]
 
         try:
             body = await self.parse_body(http_request)
         except Exception as exc:
             resp = await self.entrypoint.handle_exception_to_resp(exc)
-            response = self.response_class(content=resp, background=background_tasks)
+            response = response_class(content=resp, background=background_tasks)
         else:
             try:
                 resp = await self.handle_body(http_request, background_tasks, sub_response, body)
@@ -892,7 +916,7 @@ class MethodRoute(APIRoute):
                 # no content for successful notifications
                 response = Response(media_type='application/json', background=background_tasks)
             else:
-                response = self.response_class(content=resp, background=background_tasks)
+                response = response_class(content=resp, background=background_tasks)
 
         response.headers.raw.extend(sub_response.headers.raw)
         if sub_response.status_code:
@@ -941,7 +965,7 @@ class MethodRoute(APIRoute):
         sub_response: Response,
         req: Any,
         dependency_cache: Optional[dict] = None,
-        shared_dependencies_error: BaseError = None
+        shared_dependencies_error: Optional[BaseError] = None
     ) -> dict:
         async with JsonRpcContext(
             entrypoint=self.entrypoint,
@@ -984,6 +1008,7 @@ class MethodRoute(APIRoute):
         # they are common to all methods in the batch.
         # But if the methods have their own dependencies, they are resolved separately.
         dependency_cache = copy.copy(dependency_cache)
+        assert ctx.exit_stack is not None
 
         solved_dependency = await solve_dependencies(
             request=http_request,
@@ -1005,7 +1030,7 @@ class MethodRoute(APIRoute):
         # We MUST NOT return response for Notification
         # https://www.jsonrpc.org/specification#notification
         # Since we do not need response - run in scheduler
-        if ctx.request.id is None:
+        if 'id' not in ctx.request.model_fields_set:
             scheduler = await self.entrypoint.get_scheduler()
             await scheduler.spawn(call_sync_async(self.func, **solved_dependency.values))
             return {}
@@ -1080,7 +1105,7 @@ class EntrypointRoute(APIRoute):
         # with a message that says nothing about json-rpc
         check_shared_dependencies(path_format, dependencies)
 
-        _Request = request_class
+        _Request: Type[BaseModel] = request_class
 
         common_dependant = Dependant(path=path_format)
         if common_dependencies:
@@ -1092,7 +1117,7 @@ class EntrypointRoute(APIRoute):
                 _Request = make_request_model(name, entrypoint.callee_module, common_dependant.body_params)
 
         # This is only necessary for generating OpenAPI
-        def endpoint(__request__: _Request):
+        def endpoint(__request__: _Request):  # type: ignore[valid-type]
             del __request__
 
         responses = errors_responses(errors)
@@ -1143,7 +1168,7 @@ class EntrypointRoute(APIRoute):
         async_exit_stack: AsyncExitStack,
     ) -> dict:
         # Must not be empty, otherwise FastAPI re-creates it
-        dependency_cache = {(lambda: None, ('',)): 1}
+        dependency_cache: Dict[DependencyCacheKey, Any] = {(lambda: None, (), ''): 1}
         if self.dependencies:
             solved_dependency = await solve_dependencies(
                 request=http_request,
@@ -1177,16 +1202,17 @@ class EntrypointRoute(APIRoute):
 
     async def handle_http_request(self, http_request: Request):
         background_tasks = BackgroundTasks()
+        response_class = typing.cast(Type[Response], self.response_class)
 
         sub_response = Response()
         del sub_response.headers["content-length"]
-        sub_response.status_code = None  # type: ignore
+        sub_response.status_code = None  # type: ignore[assignment]
 
         try:
             body = await self.parse_body(http_request)
         except Exception as exc:
             resp = await self.entrypoint.handle_exception_to_resp(exc)
-            response = self.response_class(content=resp, background=background_tasks)
+            response = response_class(content=resp, background=background_tasks)
         else:
             try:
                 resp = await self.handle_body(http_request, background_tasks, sub_response, body)
@@ -1194,7 +1220,7 @@ class EntrypointRoute(APIRoute):
                 # no content for successful notifications
                 response = Response(media_type='application/json', background=background_tasks)
             else:
-                response = self.response_class(content=resp, background=background_tasks)
+                response = response_class(content=resp, background=background_tasks)
 
         response.headers.raw.extend(sub_response.headers.raw)
         if sub_response.status_code:
@@ -1269,7 +1295,7 @@ class EntrypointRoute(APIRoute):
         sub_response: Response,
         req: Any,
         dependency_cache: Optional[dict] = None,
-        shared_dependencies_error: BaseError = None
+        shared_dependencies_error: Optional[BaseError] = None
     ) -> dict:
         async with JsonRpcContext(
             entrypoint=self.entrypoint,
@@ -1297,12 +1323,14 @@ class EntrypointRoute(APIRoute):
         sub_response: Response,
         ctx: JsonRpcContext,
         dependency_cache: Optional[dict] = None,
-        shared_dependencies_error: BaseError = None
+        shared_dependencies_error: Optional[BaseError] = None
     ):
         http_request_shadow = RequestShadow(http_request)
         http_request_shadow.scope['path'] = self.path + '/' + ctx.request.method
 
-        for route in self.entrypoint.routes:  # type: MethodRoute
+        for route in self.entrypoint.routes:
+            if not isinstance(route, MethodRoute):
+                continue
             match, child_scope = route.matches(http_request_shadow.scope)
             if match == Match.FULL:
                 # http_request is a transport layer and it is common for all JSON-RPC requests in a batch
@@ -1424,7 +1452,7 @@ class Entrypoint(APIRouter):
 
     def add_method_route(
         self,
-        func: Union[FunctionType, Coroutine],
+        func: _MethodCallable,
         *,
         name: Optional[str] = None,
         **kwargs,
@@ -1447,8 +1475,8 @@ class Entrypoint(APIRouter):
     def method(
         self,
         **kwargs,
-    ) -> Callable:
-        def decorator(func: Union[FunctionType, Coroutine]) -> Callable:
+    ) -> Callable[[_CallableT], _CallableT]:
+        def decorator(func: _CallableT) -> _CallableT:
             self.add_method_route(
                 func,
                 **kwargs,
@@ -1756,7 +1784,7 @@ class API(FastAPI):
 
 
 if __name__ == '__main__':
-    import uvicorn
+    import uvicorn  # type: ignore[import-untyped]
 
     app = API()
 

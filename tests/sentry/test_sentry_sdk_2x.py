@@ -5,7 +5,8 @@ import importlib.metadata
 import pytest
 from logging import getLogger
 from sentry_sdk.tracing import Transaction
-from fastapi_jsonrpc import BaseError
+from fastapi_jsonrpc import BaseError, JsonRpcContext
+from fastapi_jsonrpc.contrib.sentry.jrpc import default_transaction_name_generator
 
 from fastapi_jsonrpc.contrib.sentry.test_utils import (
     get_transaction_trace_id,
@@ -16,6 +17,13 @@ from fastapi_jsonrpc.contrib.sentry.test_utils import (
 sentry_sdk_version = importlib.metadata.version("sentry_sdk")
 if not sentry_sdk_version.startswith("2."):
     pytest.skip(f"Testset is only for sentry_sdk 2.x, given {sentry_sdk_version=}", allow_module_level=True)
+
+
+def test_default_transaction_name_without_method_route():
+    ctx = object.__new__(JsonRpcContext)
+    ctx.method_route = None
+
+    assert default_transaction_name_generator(ctx) == 'generic JRPC request'
 
 
 class JrpcSampleError(BaseError):
