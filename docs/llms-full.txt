@@ -382,6 +382,24 @@ Declared errors, dependencies, headers, and return types all appear in the schem
 
 Tags, summaries, descriptions: pass to `@entrypoint.method(tags=..., summary=..., description=...)`.
 
+### OpenRPC method servers
+
+Every OpenRPC Method Object carries a `servers` list naming the HTTP endpoint that accepts it, so one document can describe several entrypoints:
+
+```json
+{"name": "echo", "servers": [{"name": "/api/v2/jsonrpc", "url": "/api/v2/jsonrpc"}]}
+```
+
+Rules:
+
+- No configured `servers` on `API()` — the method server is the entrypoint path itself, as a relative URL. Root `servers` stays `[]`.
+- Configured `servers` — each one is reused per method with the entrypoint path appended to its URL; `name`, `summary`, `description`, `variables` and `x-*` extensions are preserved, and a server without `name` gets its URL as the name.
+- `root_path` / `root_path_in_servers` behave as in FastAPI: the root path becomes the first server. A request arriving under a different `root_path` gets its own document that is not cached.
+- A malformed server entry (missing/non-string `url`, unknown non-`x-` field, variable without a `default`) raises at schema generation instead of emitting an invalid document.
+- The same method registered on several entrypoints merges into one Method Object with several servers, but only while the declarations are identical; differing contracts under one name raise `RuntimeError`, because OpenRPC requires unique method names.
+
+Caveat: this is schema fidelity, not routing. A consumer has to support `Method.servers` to use it; several OpenRPC tools read only the root `servers`.
+
 ## Testing
 
 The plugin `fastapi_jsonrpc.contrib.pytest_plugin` ships a complete harness: a JSON-RPC test client, a fixture that captures all error responses, a teardown validator that every captured error is declared in `@entrypoint.method(errors=[...])`, and a marker to opt out of validation for specific tests.

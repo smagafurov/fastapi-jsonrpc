@@ -35,6 +35,7 @@ from fastapi.routing import _DefaultLifespan  # noqa: WPS450  starlette's _Defau
 import fastapi.params
 import aiojobs
 import warnings
+from urllib.parse import urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
 
@@ -1486,6 +1487,96 @@ class Entrypoint(APIRouter):
         return decorator
 
 
+_OPENRPC_SERVER_FIELDS = {'name', 'url', 'summary', 'description', 'variables'}
+_OPENRPC_SERVER_VARIABLE_FIELDS = {'default', 'enum', 'description'}
+
+
+def _check_openrpc_fields(value: dict, allowed: set[str], location: str) -> None:
+    unknown = [key for key in value if key not in allowed and not key.startswith('x-')]
+    if unknown:
+        raise ValueError(f"{location} has unknown field {unknown[0]!r}")
+
+
+def _copy_openrpc_server_variables(variables: object, server_index: int) -> Dict[str, Any]:
+    if not isinstance(variables, dict):
+        raise TypeError(f"OpenRPC server {server_index} 'variables' must be a dict")
+
+    copied: Dict[str, Any] = {}
+    for variable_name, variable in variables.items():
+        location = f"OpenRPC server {server_index} variable {variable_name!r}"
+        if not isinstance(variable_name, str):
+            raise TypeError(f"{location} name must be a string")
+        if not isinstance(variable, dict):
+            raise TypeError(f"{location} must be a dict")
+        _check_openrpc_fields(variable, _OPENRPC_SERVER_VARIABLE_FIELDS, location)
+
+        default = variable.get('default')
+        if not isinstance(default, str):
+            raise ValueError(f"{location} 'default' must be a string")
+        if 'description' in variable and not isinstance(variable['description'], str):
+            raise TypeError(f"{location} 'description' must be a string")
+        if 'enum' in variable:
+            enum = variable['enum']
+            if not isinstance(enum, list) or not enum or not all(isinstance(item, str) for item in enum):
+                raise TypeError(f"{location} 'enum' must be a non-empty list of strings")
+
+        copied[variable_name] = copy.deepcopy(variable)
+    return copied
+
+
+def _copy_openrpc_server(server: object, index: int) -> Dict[str, Any]:
+    location = f"OpenRPC server {index}"
+    if not isinstance(server, dict):
+        raise TypeError(f"{location} must be a dict")
+    _check_openrpc_fields(server, _OPENRPC_SERVER_FIELDS, location)
+
+    url = server.get('url')
+    if not isinstance(url, str):
+        error_type = ValueError if url is None else TypeError
+        raise error_type(f"{location} 'url' must be a non-empty string")
+    if not url.strip():
+        raise ValueError(f"{location} 'url' must be a non-empty string")
+
+    parsed = urlsplit(url)
+    if parsed.scheme and not parsed.netloc:
+        raise ValueError(f"{location} 'url' must be hierarchical")
+
+    copied = copy.deepcopy(server)
+    name = copied.get('name')
+    if name is None:
+        copied['name'] = url
+    elif not isinstance(name, str):
+        raise TypeError(f"{location} 'name' must be a string")
+
+    for field_name in ('summary', 'description'):
+        if field_name in copied and not isinstance(copied[field_name], str):
+            raise TypeError(f"{location} {field_name!r} must be a string")
+    if 'variables' in copied:
+        copied['variables'] = _copy_openrpc_server_variables(copied['variables'], index)
+    return copied
+
+
+def _merge_openrpc_servers(existing: List[Dict[str, Any]], additions: Sequence[Dict[str, Any]]) -> None:
+    # Compared as whole objects: the same url with different metadata is a different
+    # server choice, so deduplicating by url alone would drop information
+    for addition in additions:
+        if addition not in existing:
+            existing.append(addition)
+
+
+def _append_openrpc_path(url: str, path: str) -> str:
+    parsed = urlsplit(url)
+    base_path = parsed.path.rstrip('/')
+    suffix = path.lstrip('/')
+    if base_path:
+        combined_path = f'{base_path}/{suffix}'
+    elif parsed.netloc or parsed.scheme or url.startswith('/'):
+        combined_path = f'/{suffix}'
+    else:
+        combined_path = suffix
+    return urlunsplit(parsed._replace(path=combined_path))
+
+
 class API(FastAPI):
     def __init__(
         self,
@@ -1650,8 +1741,28 @@ class API(FastAPI):
                     result['paths'][route.path][media_type]['responses'].pop('default', None)
         return result
 
+    def _get_openrpc_root_servers(self, root_path: str) -> List[Dict[str, Any]]:
+        if not isinstance(self.servers, list):
+            raise TypeError("API.servers must be a list")
+        servers = [
+            _copy_openrpc_server(server, index)
+            for index, server in enumerate(self.servers)
+        ]
+
+        root_path = root_path.rstrip('/')
+        if self.root_path_in_servers and root_path and not any(
+            server['url'] == root_path for server in servers
+        ):
+            servers.insert(0, {'name': root_path, 'url': root_path})
+        return servers
+
     def get_openrpc(self):
+        return self._get_openrpc(self.root_path)
+
+    def _get_openrpc(self, root_path):
+        root_servers = self._get_openrpc_root_servers(root_path)
         methods_spec = []
+        methods_by_name: Dict[str, Tuple[Dict[str, Any], Dict[str, Any], str]] = {}
         schemas_spec = {}
         errors_by_code = defaultdict(set)
         ref_template = '#/components/schemas/{model}'
@@ -1670,6 +1781,16 @@ class API(FastAPI):
 
             for error in route.errors:
                 errors_by_code[error.CODE].add(error)
+
+            entrypoint_path = route.entrypoint.entrypoint_route.path
+            if root_servers:
+                method_servers = []
+                for root_server in root_servers:
+                    method_server = copy.deepcopy(root_server)
+                    method_server['url'] = _append_openrpc_path(method_server['url'], entrypoint_path)
+                    method_servers.append(method_server)
+            else:
+                method_servers = [{'name': entrypoint_path, 'url': entrypoint_path}]
 
             method_spec = {
                 'name': route.name,
@@ -1701,9 +1822,24 @@ class API(FastAPI):
             if route.summary:
                 method_spec['summary'] = route.summary
 
-            methods_spec.append(method_spec)
             schemas_spec.update(params_schema.get('$defs', {}))
             schemas_spec.update(result_schema.get('$defs', {}))
+
+            declared = methods_by_name.get(route.name)
+            if declared is None:
+                emitted_spec = dict(method_spec, servers=method_servers)
+                methods_by_name[route.name] = (method_spec, emitted_spec, entrypoint_path)
+                methods_spec.append(emitted_spec)
+                continue
+
+            declared_spec, emitted_spec, declared_path = declared
+            if method_spec != declared_spec:
+                raise RuntimeError(
+                    f'OpenRPC requires a unique name per method, but {route.name!r} is declared '
+                    f'with different contracts by {declared_path} and {entrypoint_path}'
+                )
+
+            _merge_openrpc_servers(emitted_spec['servers'], method_servers)
 
         errors_spec = {}
         for code, errors in errors_by_code.items():
@@ -1743,7 +1879,7 @@ class API(FastAPI):
                 'version': self.version,
                 'title': self.title,
             },
-            'servers': self.servers,
+            'servers': root_servers,
             'methods': methods_spec,
             'components': {
                 'schemas': schemas_spec,
@@ -1760,6 +1896,17 @@ class API(FastAPI):
 
         return self.openrpc_schema
 
+    def _openrpc_for_root_path(self, root_path: str) -> Dict[str, Any]:
+        if not self.root_path_in_servers or root_path.rstrip('/') == self.root_path.rstrip('/'):
+            return self.openrpc()
+
+        # A proxy may serve the same app under several prefixes, so this document
+        # describes one request only and must stay out of the shared cache
+        schema = self._get_openrpc(root_path)
+        if self.fastapi_jsonrpc_components_fine_names and 'components' in schema:
+            self._restore_json_schema_fine_component_names(schema)
+        return schema
+
     def setup(self) -> None:
         super().setup()
 
@@ -1767,8 +1914,8 @@ class API(FastAPI):
             assert self.title, "A title must be provided for OpenRPC, e.g.: 'My API'"
             assert self.version, "A version must be provided for OpenRPC, e.g.: '2.1.0'"
 
-            async def openrpc(_: Request) -> JSONResponse:
-                return JSONResponse(self.openrpc())
+            async def openrpc(request: Request) -> JSONResponse:
+                return JSONResponse(self._openrpc_for_root_path(request.scope.get('root_path', '')))
 
             self.add_route(self.openrpc_url, openrpc, include_in_schema=False)
 

@@ -29,6 +29,42 @@ The OpenRPC schema is generated from the same metadata as OpenAPI and is served 
 app = jsonrpc.API(openrpc_url=None)
 ```
 
+### Which endpoint serves a method
+
+One OpenRPC document can describe several entrypoints, so every method carries a `servers` list pointing at the HTTP endpoint that actually accepts it:
+
+```python
+app = jsonrpc.API()
+api_v1 = jsonrpc.Entrypoint('/api/v1/jsonrpc')
+api_v2 = jsonrpc.Entrypoint('/api/v2/jsonrpc')
+
+@api_v1.method()
+def legacy_echo(value: str = Body(...)) -> str:
+    return value
+
+@api_v2.method()
+def echo(value: str = Body(...)) -> str:
+    return value
+
+app.bind_entrypoint(api_v1)
+app.bind_entrypoint(api_v2)
+```
+
+```json
+{
+  "methods": [
+    {"name": "legacy_echo", "servers": [{"name": "/api/v1/jsonrpc", "url": "/api/v1/jsonrpc"}]},
+    {"name": "echo", "servers": [{"name": "/api/v2/jsonrpc", "url": "/api/v2/jsonrpc"}]}
+  ]
+}
+```
+
+This is schema fidelity, not client-side routing: a reader of the document can tell where to send each call, but consumers are free to ignore `Method.servers`, and several OpenRPC tools currently use only the root `servers`.
+
+When you configure `servers` on `API()`, each of them is reused for every method with the entrypoint path appended to its URL; `root_path` and `root_path_in_servers` behave as in FastAPI. Without any configured server the method server is the plain entrypoint path.
+
+Registering the same method on two entrypoints is allowed while both declarations are identical — the method appears once with both servers. OpenRPC requires method names to be unique, so two different contracts under one name raise a `RuntimeError` naming the method and both entrypoints instead of emitting an invalid document.
+
 ## Customising component names
 
 By default `fastapi-jsonrpc` gives its generated Pydantic models short, human-friendly names. If you need the raw FastAPI naming (e.g. to avoid collisions with your own components), set:
