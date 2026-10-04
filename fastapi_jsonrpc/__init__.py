@@ -25,6 +25,7 @@ from fastapi.exceptions import RequestValidationError, HTTPException
 from fastapi.routing import APIRoute, APIRouter, request_response, serialize_response
 from fastapi.types import DependencyCacheKey
 from pydantic import BaseModel, ValidationError, StrictStr, Field, create_model, ConfigDict
+from starlette._utils import is_async_callable
 from starlette.background import BackgroundTasks
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
@@ -423,8 +424,7 @@ class NoContent(Exception):
 
 
 async def call_sync_async(call, *args, **kwargs):
-    is_coroutine = inspect.iscoroutinefunction(call)
-    if is_coroutine:
+    if is_async_callable(call):
         return await call(*args, **kwargs)
     else:
         return await run_in_threadpool(call, *args, **kwargs)
