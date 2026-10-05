@@ -1,3 +1,9 @@
+## v4.0.1 (2026-10-05)
+
+### Fix
+
+- await async callable methods
+
 ## v4.0.0 (2026-09-02)
 
 ### Feat
