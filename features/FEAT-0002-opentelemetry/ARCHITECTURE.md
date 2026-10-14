@@ -74,7 +74,7 @@ Target: `open-telemetry/semantic-conventions` `main` at [`6afd3ad`](https://gith
 `rpc.method` should be present at creation because samplers use it. At that point `ctx.method_route` is still `None` on the main entrypoint path (`EntrypointRoute.handle_req` sets it after middlewares are entered), and `ctx.request` may raise `InvalidRequest`. So the middleware:
 
 - reads `ctx.raw_request` defensively: a `dict` with a `str` `method`, otherwise "missing";
-- checks the name against the names of the entrypoint's `MethodRoute`s (`ctx.entrypoint.routes`), cached per entrypoint because one middleware instance may serve several.
+- checks the name against the names of the entrypoint's `MethodRoute`s (`ctx.entrypoint.routes`) with a short-circuiting scan. No cache: one middleware instance may serve several entrypoints, routes can be added after the middleware is built, and the scan allocates nothing. A cache is an easy follow-up if profiling ever shows the scan.
 
 On the per-method path (`MethodRoute.handle_req_to_resp`), `ctx.method_route` is already set, but the same lookup gives the same answer, so there is one code path.
 
