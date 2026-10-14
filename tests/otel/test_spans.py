@@ -1,27 +1,6 @@
 from json import dumps as json_dumps
 
-import pytest
-from fastapi import Body
 from opentelemetry.trace import SpanKind, StatusCode
-
-import fastapi_jsonrpc as jsonrpc
-from fastapi_jsonrpc.contrib.opentelemetry import OpenTelemetryMiddleware
-
-
-@pytest.fixture
-def ep(ep_path, tracer_provider):
-    ep = jsonrpc.Entrypoint(ep_path, middlewares=[OpenTelemetryMiddleware(tracer_provider=tracer_provider)])
-
-    @ep.method()
-    def echo(data: str = Body(...)) -> str:
-        return data
-
-    @ep.method()
-    def traced_echo(data: str = Body(...)) -> str:
-        with tracer_provider.get_tracer('test').start_as_current_span('inside method'):
-            return data
-
-    return ep
 
 
 def test_single_call(method_request, finished_spans):
