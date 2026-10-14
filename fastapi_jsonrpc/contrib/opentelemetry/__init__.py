@@ -11,12 +11,14 @@ from fastapi_jsonrpc import Entrypoint, JsonRpcContext, MethodRoute
 
 __all__ = [
     'ExceptionFilter',
+    'Hook',
     'OpenTelemetryMiddleware',
 ]
 
 logger = logging.getLogger(__name__)
 
 ExceptionFilter = Callable[[Exception], Optional[Exception]]
+Hook = Callable[[Span, JsonRpcContext], None]
 
 RPC_SYSTEM_NAME = 'rpc.system.name'
 RPC_METHOD = 'rpc.method'
@@ -42,7 +44,11 @@ class OpenTelemetryMiddleware:
         meter_provider: Optional[MeterProvider] = None,
         enable_metrics: bool = True,
         record_exception: Union[bool, ExceptionFilter] = False,
+        request_hook: Optional[Hook] = None,
+        response_hook: Optional[Hook] = None,
     ):
+        self._request_hook = request_hook
+        self._response_hook = response_hook
         version = importlib.metadata.version('fastapi-jsonrpc')
         self._tracer = get_tracer(INSTRUMENTATION_NAME, version, tracer_provider=tracer_provider)
         self._duration: Optional[Histogram] = None
@@ -91,12 +97,14 @@ class OpenTelemetryMiddleware:
             record_exception=False,
             set_status_on_exception=False,
         ) as span:
+            _call_hook('request_hook', self._request_hook, span, ctx)
             try:
                 yield
             finally:
                 outcome = _set_outcome(span, ctx)
                 if ctx.is_unhandled_exception and ctx.exception is not None:
                     self._record_exception(span, ctx.exception)
+                _call_hook('response_hook', self._response_hook, span, ctx)
                 if self._duration is not None:
                     metric_attributes = {key: attributes[key] for key in METRIC_ATTRIBUTES if key in attributes}
                     self._duration.record(time.perf_counter() - started, {**metric_attributes, **outcome})
@@ -115,6 +123,15 @@ class OpenTelemetryMiddleware:
 
 def _record_as_is(exception: Exception) -> Exception:
     return exception
+
+
+def _call_hook(name: str, hook: Optional[Hook], span: Span, ctx: JsonRpcContext) -> None:
+    if hook is None:
+        return
+    try:
+        hook(span, ctx)
+    except Exception:
+        logger.warning('%s failed', name, exc_info=True)
 
 
 def _is_registered(entrypoint: Entrypoint, method: str) -> bool:
