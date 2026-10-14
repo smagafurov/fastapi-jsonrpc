@@ -157,7 +157,7 @@ With more than 100 calls in flight per entrypoint, call spans would attach to th
 
 ## D11. Testing
 
-- New directory `tests/opentelemetry/` with its own `conftest.py`, following `tests/sentry/`.
+- New directory `tests/otel/` with its own `conftest.py`, following `tests/sentry/`. It can't be named `tests/opentelemetry/`: pytest puts `tests/` on `sys.path`, and that package would shadow the real `opentelemetry` namespace package.
 - Fixtures build a local `TracerProvider` with `InMemorySpanExporter` + `SimpleSpanProcessor`, and a `MeterProvider` with `InMemoryMetricReader`, and pass them to the middleware. No global provider mutation, so tests stay isolated.
 - The coexistence test uses `FastAPIInstrumentor.instrument_app(app, tracer_provider=...)` on the same provider and asserts parent/child links and span counts.
 - The no-SDK test runs with the API's default no-op providers.
