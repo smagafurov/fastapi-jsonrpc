@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from fastapi import Body, HTTPException
 from opentelemetry.sdk.metrics import MeterProvider
@@ -11,6 +13,7 @@ from fastapi_jsonrpc.contrib.opentelemetry import OpenTelemetryMiddleware
 
 
 SECRET_MESSAGE = 'cannot notify alice@example.com'
+SLOW_METHOD_SECONDS = 0.05
 
 
 class MyError(jsonrpc.BaseError):
@@ -57,10 +60,14 @@ def middleware_options():
 
 
 @pytest.fixture
-def ep(ep_path, tracer_provider, middleware_options):
+def ep(ep_path, tracer_provider, meter_provider, middleware_options):
     ep = jsonrpc.Entrypoint(
         ep_path,
-        middlewares=[OpenTelemetryMiddleware(tracer_provider=tracer_provider, **middleware_options)],
+        middlewares=[OpenTelemetryMiddleware(
+            tracer_provider=tracer_provider,
+            meter_provider=meter_provider,
+            **middleware_options,
+        )],
     )
 
     @ep.method()
@@ -83,5 +90,9 @@ def ep(ep_path, tracer_provider, middleware_options):
     @ep.method()
     def crash() -> None:
         raise RuntimeError(SECRET_MESSAGE)
+
+    @ep.method()
+    async def slow() -> None:
+        await asyncio.sleep(SLOW_METHOD_SECONDS)
 
     return ep
