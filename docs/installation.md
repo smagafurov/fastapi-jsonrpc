@@ -25,6 +25,10 @@ pip install uvicorn
   pip install 'fastapi-jsonrpc[sentry]'
   ```
   On sentry-sdk 1.x importing `fastapi_jsonrpc.contrib.sentry` raises, and the deprecated implicit integration stays off with a warning on import.
+- **OpenTelemetry integration** — depends only on `opentelemetry-api` 1.30+; see [OpenTelemetry](usage/opentelemetry.md):
+  ```bash
+  pip install 'fastapi-jsonrpc[opentelemetry]'
+  ```
 - **Pytest plugin** — bundled in `fastapi_jsonrpc.contrib.pytest_plugin`. It is **not** auto-registered; add it explicitly to your `conftest.py` — see [Testing](usage/testing.md).
 
 ## Verify
