@@ -2,6 +2,7 @@ import contextlib
 from json import dumps as json_dumps
 
 import pytest
+from fastapi import Depends
 from opentelemetry.trace import StatusCode
 
 from fastapi_jsonrpc import JsonRpcContext
@@ -114,6 +115,24 @@ def test_error_from_later_middleware_enter(ep, method_request, finished_spans):
     assert span.name == 'echo'
     assert {k: span.attributes[k] for k in error_attributes('')} == error_attributes('5000')
     assert span.status.status_code == StatusCode.ERROR
+
+
+def raise_my_error():
+    raise MyError()
+
+
+@pytest.mark.parametrize('ep_options', [{'dependencies': [Depends(raise_my_error)]}])
+def test_shared_dependency_error_on_every_call(json_request, finished_spans):
+    json_request([
+        {'id': 1, 'jsonrpc': '2.0', 'method': 'echo', 'params': {'data': 'one'}},
+        {'id': 2, 'jsonrpc': '2.0', 'method': 'echo', 'params': {'data': 'two'}},
+    ])
+
+    spans = finished_spans()
+    assert len(spans) == 2
+    for span in spans:
+        assert {k: span.attributes[k] for k in error_attributes('')} == error_attributes('5000')
+        assert span.status.status_code == StatusCode.ERROR
 
 
 def test_http_exception(raw_request, finished_spans):
