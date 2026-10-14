@@ -10,6 +10,9 @@ import fastapi_jsonrpc as jsonrpc
 from fastapi_jsonrpc.contrib.opentelemetry import OpenTelemetryMiddleware
 
 
+SECRET_MESSAGE = 'cannot notify alice@example.com'
+
+
 class MyError(jsonrpc.BaseError):
     CODE = 5000
     MESSAGE = 'My error'
@@ -76,5 +79,9 @@ def ep(ep_path, tracer_provider, middleware_options):
     @ep.method()
     def fail_with_http_exception() -> None:
         raise HTTPException(403)
+
+    @ep.method()
+    def crash() -> None:
+        raise RuntimeError(SECRET_MESSAGE)
 
     return ep
