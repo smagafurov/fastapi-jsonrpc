@@ -1,14 +1,20 @@
 import importlib.metadata
+import logging
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Dict, Optional
+from typing import Any, AsyncGenerator, Callable, Dict, Optional, Union
 
 from opentelemetry.trace import Span, SpanKind, Status, StatusCode, TracerProvider, get_tracer
 
 from fastapi_jsonrpc import Entrypoint, JsonRpcContext, MethodRoute
 
 __all__ = [
+    'ExceptionFilter',
     'OpenTelemetryMiddleware',
 ]
+
+logger = logging.getLogger(__name__)
+
+ExceptionFilter = Callable[[Exception], Optional[Exception]]
 
 RPC_SYSTEM_NAME = 'rpc.system.name'
 RPC_METHOD = 'rpc.method'
@@ -23,12 +29,24 @@ OTHER_METHOD = '_OTHER'
 
 
 class OpenTelemetryMiddleware:
-    def __init__(self, *, tracer_provider: Optional[TracerProvider] = None):
+    def __init__(
+        self,
+        *,
+        tracer_provider: Optional[TracerProvider] = None,
+        record_exception: Union[bool, ExceptionFilter] = False,
+    ):
         self._tracer = get_tracer(
             'fastapi_jsonrpc',
             importlib.metadata.version('fastapi-jsonrpc'),
             tracer_provider=tracer_provider,
         )
+        self._exception_filter: Optional[ExceptionFilter]
+        if record_exception is True:
+            self._exception_filter = _record_as_is
+        elif record_exception is False:
+            self._exception_filter = None
+        else:
+            self._exception_filter = record_exception
 
     @asynccontextmanager
     async def __call__(self, ctx: JsonRpcContext) -> AsyncGenerator[None, None]:
@@ -63,6 +81,23 @@ class OpenTelemetryMiddleware:
                 yield
             finally:
                 _set_outcome(span, ctx)
+                if ctx.is_unhandled_exception and ctx.exception is not None:
+                    self._record_exception(span, ctx.exception)
+
+    def _record_exception(self, span: Span, exception: Exception) -> None:
+        if self._exception_filter is None:
+            return
+        try:
+            recorded = self._exception_filter(exception)
+        except Exception:
+            logger.warning('record_exception filter failed, the exception is not recorded', exc_info=True)
+            return
+        if recorded is not None:
+            span.record_exception(recorded)
+
+
+def _record_as_is(exception: Exception) -> Exception:
+    return exception
 
 
 def _is_registered(entrypoint: Entrypoint, method: str) -> bool:
