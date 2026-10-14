@@ -60,7 +60,12 @@ def middleware_options():
 
 
 @pytest.fixture
-def ep(ep_path, tracer_provider, meter_provider, middleware_options):
+def ep_options():
+    return {}
+
+
+@pytest.fixture
+def ep(ep_path, tracer_provider, meter_provider, middleware_options, ep_options):
     ep = jsonrpc.Entrypoint(
         ep_path,
         middlewares=[OpenTelemetryMiddleware(
@@ -68,6 +73,7 @@ def ep(ep_path, tracer_provider, meter_provider, middleware_options):
             meter_provider=meter_provider,
             **middleware_options,
         )],
+        **ep_options,
     )
 
     @ep.method()
