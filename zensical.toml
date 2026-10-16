@@ -111,6 +111,8 @@ lang = "en"
 [[project.nav."Usage"]]
 "Sentry" = "usage/sentry.md"
 [[project.nav."Usage"]]
+"OpenTelemetry" = "usage/opentelemetry.md"
+[[project.nav."Usage"]]
 "Testing" = "usage/testing.md"
 
 [[project.nav]]

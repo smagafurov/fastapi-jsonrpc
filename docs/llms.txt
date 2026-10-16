@@ -1,6 +1,6 @@
 # fastapi-jsonrpc
 
-> JSON-RPC 2.0 server built on top of FastAPI. Write methods exactly like FastAPI endpoints and get OpenAPI, Swagger UI, and OpenRPC generated automatically. Supports batch requests, notifications, typed errors, async context-manager middlewares, and Sentry integration.
+> JSON-RPC 2.0 server built on top of FastAPI. Write methods exactly like FastAPI endpoints and get OpenAPI, Swagger UI, and OpenRPC generated automatically. Supports batch requests, notifications, typed errors, async context-manager middlewares, and Sentry and OpenTelemetry integrations.
 
 Version: 3.5.0. Python >=3.10, FastAPI >=0.135.2, Pydantic >=2.7, Starlette >=1.0.
 
@@ -27,6 +27,7 @@ Version: 3.5.0. Python >=3.10, FastAPI >=0.135.2, Pydantic >=2.7, Starlette >=1.
 
 - [OpenAPI & OpenRPC](usage/openapi.md): Auto-generated schemas, per-method Swagger routes, component names, tags
 - [Sentry](usage/sentry.md): `FastApiJsonRPCIntegration`, transaction naming, batch spans
+- [OpenTelemetry](usage/opentelemetry.md): `OpenTelemetryMiddleware`, span per call, `rpc.server.call.duration`, opt-in exception recording, hooks
 - [Testing](usage/testing.md): pytest plugin — `JsonRpcTestClient`, `jsonrpc_client` fixture, auto-validation of declared errors, opt-out marker, direct method calls
 
 ## LLM Context
