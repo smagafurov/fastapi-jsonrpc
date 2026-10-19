@@ -647,12 +647,14 @@ OpenTelemetryMiddleware(
 
 - Install as `fastapi-jsonrpc[opentelemetry]`; depends only on `opentelemetry-api>=1.30`.
 - One `SERVER` span per call (each batch item too), child of the current span (normally the HTTP server span). Name: registered method name, or `jsonrpc` for unknown/missing methods.
-- Span attributes: `rpc.system.name="jsonrpc"`, `rpc.method` (registered name, `_OTHER` for unregistered, absent when missing), `rpc.method_original` (only with `_OTHER`), `jsonrpc.protocol.version="2.0"`, `jsonrpc.request.id` (absent for notifications and `null` id).
+- Span attributes: `rpc.system.name="jsonrpc"`, `rpc.method` (registered name, `_OTHER` for unregistered, absent when missing), `rpc.method_original` (only with `_OTHER`), `jsonrpc.protocol.version="2.0"`, `jsonrpc.request.id` (absent for notifications and `null` id), `fastapi_jsonrpc.request.type`.
+- `fastapi_jsonrpc.request.type` (library-specific, on spans and the metric): `call` (validated request with `id`, including `id: null`), `notification` (validated, no `id`), `unknown` (no validated request). Read from the already validated request; the middleware never validates itself.
 - Errors: `error.type` and `rpc.status_code` = JSON-RPC code as string, span status `ERROR` with the error `MESSAGE`. `HTTPException`: `error.type` = class name, no `rpc.status_code`.
+- Cancellation propagates and leaves status `UNSET` with no error attributes. `UNSET` means no error was assigned, not proven success. A timeout inside the method is `InternalError`; a timeout or disconnect outside the middleware does not cancel the call.
 - Unhandled exceptions are **not** recorded by default (no event, message or stack trace). `record_exception=True` records as is; a callable returns a replacement or `None`. `BaseError` is never recorded as an exception.
-- Metric `rpc.server.call.duration` (histogram, seconds, semconv buckets). Attributes: `rpc.system.name`, `rpc.method`, `error.type`, `rpc.status_code` — never the requested name or request id.
+- Metric `rpc.server.call.duration` (histogram, seconds, semconv buckets). Attributes: `rpc.system.name`, `rpc.method`, `fastapi_jsonrpc.request.type`, `error.type`, `rpc.status_code` — never the requested name or request id. Count = operations observed by the middleware; filter `request.type="call"` for method latency.
 - Hooks that raise are logged at WARNING and change nothing. Params and results are never recorded by the library.
-- Not covered: JSON parsing, shared `Entrypoint.dependencies` timing, notification method bodies (run in background after the span ends).
+- Not covered: JSON parsing, shared `Entrypoint.dependencies` timing, notification method bodies (handed to the background scheduler; may start before or after the span ends and keep running after it; their errors may not appear on the span).
 - Targets semantic-conventions commit `6afd3ad` (uses `rpc.status_code`, not the v1.44.0 name `rpc.response.status_code`).
 
 ## Wire Protocol

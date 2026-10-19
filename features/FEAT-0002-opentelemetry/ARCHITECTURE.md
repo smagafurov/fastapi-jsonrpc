@@ -135,9 +135,9 @@ Documented on the docs page:
 
 1. **JSON parsing.** `EntrypointRoute.handle_http_request` parses the body before any call exists. A `ParseError` or empty-batch `InvalidRequest` produces no JSON-RPC span; the HTTP span still covers it.
 2. **Shared dependencies.** `Entrypoint.dependencies` are solved once per HTTP request in `handle_body`, before calls are scheduled. Their time is outside every call span and the metric. If they raise a `BaseError`, each call re-raises it inside `MethodRoute.handle_req`, so each call span still records the error.
-3. **Notification bodies.** For a notification, `MethodRoute.handle_req` validates params, solves dependencies, then spawns the method body on the aiojobs scheduler and returns `{}`. The span and the metric cover dispatch only; the method body runs after the span has ended. Exceptions from the body go to the scheduler's exception handler and are not on the span. Spans the body creates still nest under the notification span (OTel allows children to outlive parents).
+3. **Notification bodies.** For a notification, `MethodRoute.handle_req` validates params, solves dependencies, then spawns the method body on the aiojobs scheduler and returns `{}`. The span and the metric cover the middleware's scope: validation, dependencies and dispatch. The body may start while the span is still open or after it ends, and may outlive it. `scheduler.spawn` can wait for room in a full pending queue, so dispatch is not guaranteed to be instant. Exceptions or cancellation in the body go to the scheduler and may happen after the span has ended. Spans the body creates still nest under the notification span (OTel allows children to outlive parents).
 
-Decided: the first PR documents this and adds no span around the background body. That can be a follow-up if users ask for it.
+Decided: this PR documents the boundary and adds no span around the background body. Full background tracing needs its own lifecycle design (cancellation while queued, ending exactly once, keeping the scheduler's exception reporting, sync functions in threads that outlive cancellation, dependency lifetime) and is a separate follow-up.
 
 ## D10. Batch concurrency and context propagation
 
@@ -153,7 +153,7 @@ expected=req-2 seen=req-0 WRONG CONTEXT
 
 With more than 100 calls in flight per entrypoint, call spans would attach to the wrong HTTP span and trace. This affects every `contextvars` user (including `contrib.sentry` and any logging context), not just OpenTelemetry.
 
-**Decided:** a separate core fix, landed before this feature. Capture `contextvars.copy_context()` at spawn time and restore it inside the job. Python 3.10 has no `create_task(context=...)`, so the job coroutine sets each captured variable at its start. The task runs in its own context copy, so nothing leaks. That fix gets its own regression test. The OTel PR then adds a test that a batch larger than a small scheduler `limit` keeps every span under the right parent.
+**Decided:** a separate core fix, landed before this feature. Merged as #117. `_spawn_in_current_context` captures `contextvars.copy_context()` at spawn time, and the job runs the coroutine in a task created inside it with `context.run(asyncio.create_task, coro)`, which works on Python 3.10 without `create_task(context=...)`. That fix has its own regression test. The OTel PR then adds a test that a batch larger than a small scheduler `limit` keeps every span under the right parent.
 
 ## D11. Testing
 
@@ -162,3 +162,30 @@ With more than 100 calls in flight per entrypoint, call spans would attach to th
 - The coexistence test uses `FastAPIInstrumentor.instrument_app(app, tracer_provider=...)` on the same provider and asserts parent/child links and span counts.
 - The no-SDK test runs with the API's default no-op providers.
 - Unhandled-exception tests use `assert_log_errors(...)`, because the core logs them at `ERROR` and the autouse `check_no_errors` fixture would otherwise fail the test.
+
+## D12. Request type
+
+Added after review (spumer, #118): one duration series per method mixed regular calls, which include the method body, with notifications, which only cover dispatch. A local measurement showed about 202 ms for a call against 0.224 ms for a notification of the same 200 ms method, with identical attributes.
+
+`fastapi_jsonrpc.request.type` goes on spans and on the metric:
+
+| Value | Meaning |
+|---|---|
+| `call` | validated request whose `model_fields_set` contains `id`, so `id: null` counts |
+| `notification` | validated request without `id` |
+| `unknown` | no validated request |
+
+- It is a library-specific attribute, not a semantic convention.
+- It is read from the request the core already validated: `JsonRpcContext.request` is a `cached_property`, so a successful validation is stored in the instance `__dict__`. Finalization reads `vars(ctx).get('request')` and never calls `ctx.request`, which would validate, or retry a failed validation, inside telemetry. The same check works for custom `request_class` subclasses.
+- It is not inferred from `ctx.raw_response`: middlewares may replace the response.
+- It classifies the request; it does not prove a notification was scheduled or completed.
+- No measurement is dropped. Excluding successful notifications from the histogram was considered and rejected: it loses data and, if failed ones stayed, would skew error ratios computed from counts. The histogram count is the number of operations the middleware observed.
+
+## D13. Cancellation
+
+Existing behaviour, kept and pinned by tests after review:
+
+- `CancelledError` is a `BaseException`, so the core's `_handle_exception` doesn't turn it into `InternalError`, and the middleware's `finally` finalizes without assigning an error. The span ends `UNSET`, no exception event, no `error.type`; the response hook and the metric run once; the cancellation propagates.
+- Cancellation alone doesn't identify its cause, a method can catch it and return, and an outer timeout becomes `TimeoutError` only after the middleware has exited, so the middleware doesn't classify it. `UNSET` means "no error assigned", not "succeeded".
+- `aiojobs.Job.wait()` shields the job, so cancelling the HTTP request (client timeout, disconnect) doesn't cancel the call: it keeps running and its span and measurement end when it really ends. Cancelling the job itself, e.g. `scheduler.close()`, does reach the middleware.
+- A timeout inside the call raises `TimeoutError`, an `Exception`, so it ends as `InternalError` like any unhandled exception.
