@@ -55,6 +55,24 @@ def finished_spans(span_exporter):
 
 
 @pytest.fixture
+def duration_points(metric_reader):
+    def get():
+        data = metric_reader.get_metrics_data()
+        if data is None:
+            return []
+        return [
+            (metric, point)
+            for resource_metrics in data.resource_metrics
+            for scope_metrics in resource_metrics.scope_metrics
+            for metric in scope_metrics.metrics
+            if metric.name == 'rpc.server.call.duration'
+            for point in metric.data.data_points
+        ]
+
+    return get
+
+
+@pytest.fixture
 def middleware_options():
     return {}
 

@@ -7,7 +7,7 @@ from typing import Any, AsyncGenerator, Callable, Dict, Optional, Union
 from opentelemetry.metrics import Histogram, MeterProvider, get_meter
 from opentelemetry.trace import Span, SpanKind, Status, StatusCode, TracerProvider, get_tracer
 
-from fastapi_jsonrpc import Entrypoint, JsonRpcContext, MethodRoute
+from fastapi_jsonrpc import Entrypoint, JsonRpcContext, JsonRpcRequest, MethodRoute
 
 __all__ = [
     'ExceptionFilter',
@@ -27,9 +27,13 @@ RPC_STATUS_CODE = 'rpc.status_code'
 ERROR_TYPE = 'error.type'
 JSONRPC_PROTOCOL_VERSION = 'jsonrpc.protocol.version'
 JSONRPC_REQUEST_ID = 'jsonrpc.request.id'
+REQUEST_TYPE = 'fastapi_jsonrpc.request.type'
 
 RPC_SYSTEM = 'jsonrpc'
 OTHER_METHOD = '_OTHER'
+REQUEST_TYPE_CALL = 'call'
+REQUEST_TYPE_NOTIFICATION = 'notification'
+REQUEST_TYPE_UNKNOWN = 'unknown'
 
 INSTRUMENTATION_NAME = 'fastapi_jsonrpc'
 METRIC_ATTRIBUTES = (RPC_SYSTEM_NAME, RPC_METHOD)
@@ -138,16 +142,28 @@ def _is_registered(entrypoint: Entrypoint, method: str) -> bool:
     return any(isinstance(route, MethodRoute) and route.name == method for route in entrypoint.routes)
 
 
+def _already_validated_request(ctx: JsonRpcContext) -> Optional[JsonRpcRequest]:
+    request = vars(ctx).get('request')
+    return request if isinstance(request, JsonRpcRequest) else None
+
+
+def _request_type(ctx: JsonRpcContext) -> str:
+    request = _already_validated_request(ctx)
+    if request is None:
+        return REQUEST_TYPE_UNKNOWN
+    return REQUEST_TYPE_CALL if 'id' in request.model_fields_set else REQUEST_TYPE_NOTIFICATION
+
+
 def _set_outcome(span: Span, ctx: JsonRpcContext) -> Dict[str, str]:
-    outcome: Dict[str, str] = {}
+    outcome: Dict[str, str] = {REQUEST_TYPE: _request_type(ctx)}
     error: Optional[Dict[str, Any]] = (ctx.raw_response or {}).get('error')
     if error is not None:
         code = str(error['code'])
-        outcome = {ERROR_TYPE: code, RPC_STATUS_CODE: code}
+        outcome.update({ERROR_TYPE: code, RPC_STATUS_CODE: code})
         span.set_status(Status(StatusCode.ERROR, error['message']))
     elif ctx.exception is not None:
         exception_type = type(ctx.exception)
-        outcome = {ERROR_TYPE: f'{exception_type.__module__}.{exception_type.__qualname__}'}
+        outcome[ERROR_TYPE] = f'{exception_type.__module__}.{exception_type.__qualname__}'
         span.set_status(Status(StatusCode.ERROR))
     span.set_attributes(outcome)
     return outcome

@@ -7,30 +7,16 @@ from .conftest import SLOW_METHOD_SECONDS
 RECOMMENDED_BOUNDARIES = (0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10)
 
 
-@pytest.fixture
-def duration_points(metric_reader):
-    def get():
-        data = metric_reader.get_metrics_data()
-        if data is None:
-            return []
-        return [
-            (metric, point)
-            for resource_metrics in data.resource_metrics
-            for scope_metrics in resource_metrics.scope_metrics
-            for metric in scope_metrics.metrics
-            if metric.name == 'rpc.server.call.duration'
-            for point in metric.data.data_points
-        ]
-
-    return get
-
-
 def test_successful_call(method_request, duration_points):
     method_request('echo', {'data': 'hi'})
 
     [(metric, point)] = duration_points()
     assert metric.unit == 's'
-    assert dict(point.attributes) == {'rpc.system.name': 'jsonrpc', 'rpc.method': 'echo'}
+    assert dict(point.attributes) == {
+        'rpc.system.name': 'jsonrpc',
+        'rpc.method': 'echo',
+        'fastapi_jsonrpc.request.type': 'call',
+    }
     assert point.count == 1
     assert point.explicit_bounds == RECOMMENDED_BOUNDARIES
 
@@ -59,6 +45,7 @@ def test_error_attributes(method_request, duration_points):
     assert dict(point.attributes) == {
         'rpc.system.name': 'jsonrpc',
         'rpc.method': 'fail_with_error',
+        'fastapi_jsonrpc.request.type': 'call',
         'error.type': '5000',
         'rpc.status_code': '5000',
     }
@@ -71,6 +58,7 @@ def test_unknown_method_never_uses_requested_name(json_request, duration_points)
     assert dict(point.attributes) == {
         'rpc.system.name': 'jsonrpc',
         'rpc.method': '_OTHER',
+        'fastapi_jsonrpc.request.type': 'call',
         'error.type': '-32601',
         'rpc.status_code': '-32601',
     }
@@ -82,6 +70,7 @@ def test_invalid_request_has_no_method(json_request, duration_points):
     [(_, point)] = duration_points()
     assert dict(point.attributes) == {
         'rpc.system.name': 'jsonrpc',
+        'fastapi_jsonrpc.request.type': 'unknown',
         'error.type': '-32600',
         'rpc.status_code': '-32600',
     }
@@ -94,6 +83,7 @@ def test_http_exception(raw_request, duration_points):
     assert dict(point.attributes) == {
         'rpc.system.name': 'jsonrpc',
         'rpc.method': 'fail_with_http_exception',
+        'fastapi_jsonrpc.request.type': 'call',
         'error.type': 'fastapi.exceptions.HTTPException',
     }
 

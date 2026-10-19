@@ -26,6 +26,7 @@ def test_unknown_method(json_request, finished_spans):
         'rpc.method_original': 'nope',
         'jsonrpc.protocol.version': '2.0',
         'jsonrpc.request.id': '1',
+        'fastapi_jsonrpc.request.type': 'call',
         **error_attributes('-32601'),
     }
     assert span.status.status_code == StatusCode.ERROR
@@ -56,6 +57,7 @@ def test_invalid_request(json_request, finished_spans, request_body):
         'rpc.system.name': 'jsonrpc',
         'jsonrpc.protocol.version': '2.0',
         'jsonrpc.request.id': '1',
+        'fastapi_jsonrpc.request.type': 'unknown',
         **error_attributes('-32600'),
     }
     assert span.status.status_code == StatusCode.ERROR
@@ -71,6 +73,7 @@ def test_batch_item_is_not_an_object(json_request, finished_spans):
     assert dict(span.attributes) == {
         'rpc.system.name': 'jsonrpc',
         'jsonrpc.protocol.version': '2.0',
+        'fastapi_jsonrpc.request.type': 'unknown',
         **error_attributes('-32600'),
     }
 

@@ -14,6 +14,7 @@ def test_single_call(method_request, finished_spans):
         'rpc.method': 'echo',
         'jsonrpc.protocol.version': '2.0',
         'jsonrpc.request.id': '1',
+        'fastapi_jsonrpc.request.type': 'call',
     }
     assert span.status.status_code == StatusCode.UNSET
 
