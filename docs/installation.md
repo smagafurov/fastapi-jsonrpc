@@ -12,6 +12,11 @@
 pip install fastapi-jsonrpc
 ```
 
+For deployments, use Starlette `>=1.3.1` and idna `>=3.15` to address known
+security advisories affecting older versions. Keep dependencies updated for
+subsequent security fixes. These recommendations do not change the package's
+minimum dependency requirements, which remain unchanged for compatibility.
+
 For running the examples in this documentation you also need an ASGI server, e.g. [uvicorn](https://www.uvicorn.org/):
 
 ```bash
