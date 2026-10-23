@@ -430,20 +430,6 @@ async def call_sync_async(call, *args, **kwargs):
         return await run_in_threadpool(call, *args, **kwargs)
 
 
-_T = TypeVar('_T')
-
-
-async def _run_in_context(context: contextvars.Context, coro: typing.Coroutine[Any, Any, _T]) -> _T:
-    return await context.run(asyncio.create_task, coro)
-
-
-async def _spawn_in_current_context(
-    scheduler: aiojobs.Scheduler,
-    coro: typing.Coroutine[Any, Any, _T],
-) -> aiojobs.Job[_T]:
-    return await scheduler.spawn(_run_in_context(contextvars.copy_context(), coro))
-
-
 def errors_responses(errors: Optional[Sequence[Type[BaseError]]] = None)->Dict[Any, Any]:
     responses: Dict[Any, Any] = {'default': {}}
 
@@ -1049,7 +1035,7 @@ class MethodRoute(APIRoute):
         # Since we do not need response - run in scheduler
         if 'id' not in ctx.request.model_fields_set:
             scheduler = await self.entrypoint.get_scheduler()
-            await _spawn_in_current_context(scheduler, call_sync_async(self.func, **solved_dependency.values))
+            await scheduler.spawn(call_sync_async(self.func, **solved_dependency.values))
             return {}
 
         # Для обычных запросов продолжаем как раньше
@@ -1276,8 +1262,7 @@ class EntrypointRoute(APIRoute):
             # Run concurrently through scheduler
             job_list = []
             for req in req_list:
-                job = await _spawn_in_current_context(
-                    scheduler,
+                job = await scheduler.spawn(
                     self.handle_req_to_resp(
                         http_request, background_tasks, sub_response, req,
                         dependency_cache=dependency_cache,
