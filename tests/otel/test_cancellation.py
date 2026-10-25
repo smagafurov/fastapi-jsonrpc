@@ -1,14 +1,27 @@
 import asyncio
+import contextlib
 
 import httpx
 import pytest
 from opentelemetry.trace import StatusCode
 
-SLOW_SECONDS = 0.2
+import fastapi_jsonrpc as jsonrpc
+
+SAFETY_TIMEOUT_SECONDS = 5
 
 
 @pytest.fixture
 def method_started():
+    return asyncio.Event()
+
+
+@pytest.fixture
+def method_released():
+    return asyncio.Event()
+
+
+@pytest.fixture
+def method_cancelled():
     return asyncio.Event()
 
 
@@ -23,7 +36,7 @@ def middleware_options(finalized_spans):
 
 
 @pytest.fixture
-def ep(ep, method_started):
+def ep(ep, method_started, method_released, method_cancelled):
     @ep.method()
     async def hang() -> None:
         method_started.set()
@@ -43,11 +56,31 @@ def ep(ep, method_started):
         await asyncio.wait_for(asyncio.sleep(10), 0.01)
 
     @ep.method()
-    async def take_a_while() -> str:
-        await asyncio.sleep(SLOW_SECONDS)
-        return 'done'
+    async def wait_for_release() -> str:
+        method_started.set()
+        try:
+            await method_released.wait()
+        except asyncio.CancelledError:
+            method_cancelled.set()
+            raise
+        return 'released'
 
     return ep
+
+
+@contextlib.asynccontextmanager
+async def time_out_quickly(_ctx: jsonrpc.JsonRpcContext):
+    task = asyncio.current_task()
+    assert task is not None
+    timer = asyncio.get_running_loop().call_later(0.01, task.cancel)
+    try:
+        yield
+    except asyncio.CancelledError:
+        if hasattr(task, 'uncancel'):
+            task.uncancel()
+        raise asyncio.TimeoutError()
+    finally:
+        timer.cancel()
 
 
 @pytest.fixture
@@ -126,16 +159,54 @@ def test_timeout_inside_the_boundary_is_an_internal_error(
     assert point.attributes['error.type'] == '-32603'
 
 
-def test_timeout_outside_the_boundary_is_not_seen(
-    run, ep, finished_spans, duration_points, finalized_spans,
+def test_cancelled_http_task_does_not_cancel_running_call(
+    run, ep, method_started, method_released, method_cancelled, finished_spans, duration_points, finalized_spans,
 ):
     async def scenario(post):
-        with pytest.raises(asyncio.TimeoutError):
-            await asyncio.wait_for(post('take_a_while'), SLOW_SECONDS / 4)
-        assert finished_spans() == ()
-        await ep.scheduler.wait_and_close()
+        request = asyncio.ensure_future(post('wait_for_release'))
+        try:
+            await asyncio.wait_for(method_started.wait(), SAFETY_TIMEOUT_SECONDS)
+            request.cancel()
+            [outcome] = await asyncio.gather(request, return_exceptions=True)
+            assert isinstance(outcome, asyncio.CancelledError)
+
+            assert not method_cancelled.is_set()
+            assert finished_spans() == ()
+            assert finalized_spans == []
+            assert duration_points() == []
+
+            method_released.set()
+            await asyncio.wait_for(ep.scheduler.wait_and_close(), SAFETY_TIMEOUT_SECONDS)
+        finally:
+            method_released.set()
+            await ep.shutdown()
 
     run(scenario)
 
-    _, point = assert_finalized_once_without_error(finished_spans, duration_points, finalized_spans)
-    assert point.sum >= SLOW_SECONDS
+    assert not method_cancelled.is_set()
+    assert_finalized_once_without_error(finished_spans, duration_points, finalized_spans)
+
+
+@pytest.mark.parametrize('timeout_first, expected_status, expected_error_type', [
+    (True, StatusCode.UNSET, None),
+    (False, StatusCode.ERROR, '-32603'),
+], ids=['[timeout, otel]', '[otel, timeout]'])
+def test_timeout_in_jsonrpc_middleware_depends_on_order(
+    ep, json_request, method_cancelled, finished_spans, duration_points, assert_log_errors,
+    timeout_first, expected_status, expected_error_type,
+):
+    if timeout_first:
+        ep.middlewares.insert(0, time_out_quickly)
+    else:
+        ep.middlewares.append(time_out_quickly)
+
+    resp = json_request({'id': 1, 'jsonrpc': '2.0', 'method': 'wait_for_release', 'params': {}})
+
+    assert resp['error'] == {'code': -32603, 'message': 'Internal error'}
+    assert_log_errors('', pytest.raises(asyncio.TimeoutError))
+    assert method_cancelled.is_set()
+    [span] = finished_spans()
+    assert span.status.status_code == expected_status
+    assert span.attributes.get('error.type') == expected_error_type
+    [(_, point)] = duration_points()
+    assert point.attributes.get('error.type') == expected_error_type
