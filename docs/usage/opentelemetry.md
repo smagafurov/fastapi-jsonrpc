@@ -81,7 +81,12 @@ The type comes from the request the library already validated; the middleware ne
 
 Cancellation is propagated, not converted into an error. If the call is cancelled while it runs, the span, the response hook and the metric are finalized once, with `UNSET` status and no error attributes, and no exception is recorded. A method that catches the cancellation and returns a result is a normal success. A timeout inside the call, e.g. `asyncio.wait_for` in the method, raises `TimeoutError`, which is an unhandled exception and ends as `InternalError` (`-32603`).
 
-The middleware only sees what happens inside it. A timeout or a client disconnect outside it doesn't cancel the call: the call keeps running and is measured until it really ends. An outer middleware can also change the final response after this one has finished, which is one more reason to put it first.
+The middleware only records what happens inside it, and there are two different boundaries outside it:
+
+- **The HTTP task.** Each call runs as a scheduler job, and the HTTP request handler waits for it through a shielded `Job.wait()`. Cancelling the HTTP task while it waits for an already running job doesn't, by itself, cancel that job: the call keeps running and the middleware measures it until it finishes. This is tested by cancelling the HTTP task with an in-process ASGI transport. A real network disconnect is not tested separately.
+- **Other JSON-RPC middlewares.** They run inside the same job, so a timeout in one of them can cancel the method. What this middleware records then depends on the order. In `[OpenTelemetryMiddleware(), timeout]` the timeout's error reaches this middleware: `ERROR` with `error.type` `-32603`. In `[timeout, OpenTelemetryMiddleware()]` this middleware sees only the cancellation and has already finished when the timeout turns it into an error: `UNSET`, without error attributes. In both cases the client gets `InternalError`.
+
+Put the middleware first to observe errors produced by the middlewares after it.
 
 ## Exceptions
 

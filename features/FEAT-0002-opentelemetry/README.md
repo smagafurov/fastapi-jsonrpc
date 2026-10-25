@@ -84,7 +84,8 @@ Unhandled exceptions mark the span as an error with `-32603` but record no excep
 
 ### AC7. Metric
 - One `rpc.server.call.duration` data point per call, unit `s`, with the recommended explicit bucket boundaries.
-- Attributes are limited to `rpc.system.name`, `rpc.method`, `error.type`, `rpc.status_code`.
+- Attributes are limited to `rpc.system.name`, `rpc.method` (registered name or `_OTHER`), `fastapi_jsonrpc.request.type` (`call`, `notification` or `unknown`), `error.type`, `rpc.status_code`.
+- Request ids and raw, unregistered method names never appear as metric attributes.
 - Turning the metric off creates no instrument.
 
 ### AC8. Hooks
