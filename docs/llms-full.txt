@@ -1,6 +1,6 @@
 # fastapi-jsonrpc
 
-> JSON-RPC 2.0 server built on top of FastAPI. Write methods exactly like FastAPI endpoints and get OpenAPI, Swagger UI, and OpenRPC generated automatically. Supports batch requests, notifications, typed errors, async context-manager middlewares, and Sentry integration.
+> JSON-RPC 2.0 server built on top of FastAPI. Write methods exactly like FastAPI endpoints and get OpenAPI, Swagger UI, and OpenRPC generated automatically. Supports batch requests, notifications, typed errors, async context-manager middlewares, and Sentry and OpenTelemetry integrations.
 
 Tech Stack: Python >=3.10, FastAPI >=0.135.2, Pydantic >=2.7 <3, Starlette >=1.0, aiojobs. Version: 3.5.0.
 
@@ -10,6 +10,8 @@ Tech Stack: Python >=3.10, FastAPI >=0.135.2, Pydantic >=2.7 <3, Starlette >=1.0
 pip install fastapi-jsonrpc
 # with the Sentry integration (sentry-sdk 2.x only)
 pip install 'fastapi-jsonrpc[sentry]'
+# with the OpenTelemetry integration (opentelemetry-api >=1.30 only)
+pip install 'fastapi-jsonrpc[opentelemetry]'
 ```
 
 For deployments, use Starlette `>=1.3.1` and idna `>=3.15` to address known
@@ -29,6 +31,7 @@ fastapi_jsonrpc/
       __init__.py       # error-capture + auto-validation fixtures, opt-out marker
       conftest.py
     sentry/             # FastApiJsonRPCIntegration for sentry-sdk 2.x
+    opentelemetry/      # OpenTelemetryMiddleware: span + duration metric per call
 ```
 
 ### Data Flow
@@ -624,6 +627,41 @@ sentry_sdk.init(
 - Install as `fastapi-jsonrpc[sentry]`. Only sentry-sdk 2.x is supported: on 1.x this import raises `RuntimeError`.
 - Implicit auto-attach is deprecated and will be removed. It engages only when Sentry is initialized.
 
+## OpenTelemetry Integration
+
+```python
+from fastapi_jsonrpc.contrib.opentelemetry import OpenTelemetryMiddleware
+
+api_v1 = jsonrpc.Entrypoint(
+    '/api/v1/jsonrpc',
+    middlewares=[OpenTelemetryMiddleware(), *other_middlewares],  # must be first
+)
+```
+
+```python
+OpenTelemetryMiddleware(
+    *,
+    tracer_provider: TracerProvider | None = None,   # default: global
+    meter_provider: MeterProvider | None = None,     # default: global
+    enable_metrics: bool = True,
+    record_exception: bool | Callable[[Exception], Exception | None] = False,
+    request_hook: Callable[[Span, JsonRpcContext], None] | None = None,
+    response_hook: Callable[[Span, JsonRpcContext], None] | None = None,
+)
+```
+
+- Install as `fastapi-jsonrpc[opentelemetry]`; depends only on `opentelemetry-api>=1.30`.
+- One `SERVER` span per call (each batch item too), child of the current span (normally the HTTP server span). Name: registered method name, or `jsonrpc` for unknown/missing methods.
+- Span attributes: `rpc.system.name="jsonrpc"`, `rpc.method` (registered name, `_OTHER` for unregistered, absent when missing), `rpc.method_original` (only with `_OTHER`), `jsonrpc.protocol.version="2.0"`, `jsonrpc.request.id` (absent for notifications and `null` id), `fastapi_jsonrpc.request.type`.
+- `fastapi_jsonrpc.request.type` (library-specific, on spans and the metric): `call` (validated request with `id`, including `id: null`), `notification` (validated, no `id`), `unknown` (no validated request). Read from the already validated request; the middleware never validates itself.
+- Errors: `error.type` and `rpc.status_code` = JSON-RPC code as string, span status `ERROR` with the error `MESSAGE`. `HTTPException`: `error.type` = class name, no `rpc.status_code`.
+- Cancellation propagates and leaves status `UNSET` with no error attributes. `UNSET` means no error was assigned, not proven success. A timeout inside the method is `InternalError`. Cancelling the HTTP task while it awaits an already running scheduler job does not by itself cancel the job (shielded `Job.wait()`; tested with an in-process ASGI transport, not a real network disconnect). A timeout in another JSON-RPC middleware runs inside the job and can cancel the method; the span then depends on order: `[otel, timeout]` → `ERROR` `-32603`, `[timeout, otel]` → `UNSET`. Put the OTel middleware first.
+- Unhandled exceptions are **not** recorded by default (no event, message or stack trace). `record_exception=True` records as is; a callable returns a replacement or `None`. `BaseError` is never recorded as an exception.
+- Metric `rpc.server.call.duration` (histogram, seconds, semconv buckets). Attributes: `rpc.system.name`, `rpc.method`, `fastapi_jsonrpc.request.type`, `error.type`, `rpc.status_code` — never the requested name or request id. Count = operations observed by the middleware; filter `request.type="call"` for method latency.
+- Hooks that raise are logged at WARNING and change nothing. Params and results are never recorded by the library.
+- Not covered: JSON parsing, shared `Entrypoint.dependencies` timing, notification method bodies (handed to the background scheduler; may start before or after the span ends and keep running after it; their errors may not appear on the span).
+- Targets semantic-conventions commit `6afd3ad` (uses `rpc.status_code`, not the v1.44.0 name `rpc.response.status_code`).
+
 ## Wire Protocol
 
 ### Single request
@@ -706,6 +744,10 @@ Sentry initialized without an explicit `FastApiJsonRPCIntegration()` falls back 
 ### Only sentry-sdk 2.x is supported
 
 On sentry-sdk 1.x importing `fastapi_jsonrpc.contrib.sentry` raises `RuntimeError`, and importing `fastapi_jsonrpc` warns once and leaves the implicit integration off.
+
+### `OpenTelemetryMiddleware` must be the first middleware
+
+Put it first in `Entrypoint.middlewares`, not in `@entrypoint.method(middlewares=...)`. Otherwise errors raised by earlier middlewares (e.g. `InvalidRequest` for a malformed call) and `MethodNotFound` never reach the span.
 
 ---
 *Generated by documentation-keeper on 2026-04-09, based on commit `1408c30`; edited by hand since — run `/update-docs` to regenerate.*
