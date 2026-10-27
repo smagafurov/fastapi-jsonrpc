@@ -64,6 +64,7 @@ Run it with `uvicorn` and open:
 - Batch requests and notifications.
 - Context-manager JSON-RPC middlewares.
 - Optional Sentry integration (`fastapi_jsonrpc.contrib.sentry.FastApiJsonRPCIntegration`).
+- Optional [OpenTelemetry integration](https://smagafurov.github.io/fastapi-jsonrpc/usage/opentelemetry/) — per-call traces, JSON-RPC error reporting and duration metrics. Install with `pip install 'fastapi-jsonrpc[opentelemetry]'`.
 - Pytest plugin for capturing JSON-RPC errors in tests.
 
 See the full docs at <https://smagafurov.github.io/fastapi-jsonrpc/>.

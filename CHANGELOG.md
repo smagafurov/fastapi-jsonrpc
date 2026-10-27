@@ -1,3 +1,29 @@
+## v4.1.0 (2026-10-27)
+
+### OpenTelemetry integration
+
+Trace individual JSON-RPC calls instead of seeing only an HTTP POST request. The new optional `OpenTelemetryMiddleware` creates a span for each call, including each item in a batch, and works alongside FastAPI's HTTP instrumentation.
+
+- See which method was called and which JSON-RPC error it returned, even when the HTTP response is 200.
+- Track call duration with the `rpc.server.call.duration` histogram, grouped by method, request type and error code.
+- Distinguish calls, notifications and invalid requests in traces and metrics.
+- Add application-specific span attributes with request and response hooks.
+- Choose whether to record unhandled exceptions, with an option to redact them first. Request params and results are never recorded automatically; exception messages and stack traces are not recorded by default.
+
+Install with `pip install 'fastapi-jsonrpc[opentelemetry]'` and add the middleware first in your entrypoint's middleware list. Configure the OpenTelemetry SDK and exporters in your application.
+
+For notifications, spans and duration measurements cover validation and dispatch to the background scheduler, not the full background execution.
+
+See the [OpenTelemetry integration guide](https://smagafurov.github.io/fastapi-jsonrpc/usage/opentelemetry/) for setup, options and tracing boundaries.
+
+### Fixes
+
+- Queued scheduler jobs now preserve the context of the request that created them, so request-local context and trace parentage are retained when a job waits for a free slot.
+
+### Dependencies
+
+- Updated locked dependencies with security fixes and added the dependency needed by Starlette's current test client.
+
 ## v4.0.1 (2026-10-05)
 
 ### Fix
